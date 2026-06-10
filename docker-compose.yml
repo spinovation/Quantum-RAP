@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: quarkshield-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: quarkshield
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quarkshield-app
+    restart: always
+    ports:
+      - '5000:5000'
+    depends_on:
+      - db
+    environment:
+      - PORT=5000
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=quarkshield
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - NODE_ENV=production
+      - IS_ADMIN_NODE=true
+      - SMTP_HOST=${SMTP_HOST:-maildev}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-support@quarkshield.services}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/quantum-rap-clients:/opt/quantum-rap-clients
+      - /opt/quantum-rap/provision_client.sh:/opt/quantum-rap/provision_client.sh
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  maildev:
+    image: maildev/maildev:2.1.0
+    container_name: quarkshield-maildev
+    restart: always
+    ports:
+      - '1025:1025'
+      - '1080:1080'
+
+volumes:
+  pg_data:
+    driver: local

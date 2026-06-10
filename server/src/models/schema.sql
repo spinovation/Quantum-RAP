@@ -1,0 +1,35 @@
+CREATE TABLE IF NOT EXISTS assets (
+  id VARCHAR(100) PRIMARY KEY,
+  type VARCHAR(50) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  algorithm VARCHAR(100) NOT NULL,
+  key_size INTEGER,
+  hash_algorithm VARCHAR(100),
+  is_vulnerable BOOLEAN NOT NULL,
+  risk_level VARCHAR(50) NOT NULL,
+  status VARCHAR(100) NOT NULL,
+  description TEXT,
+  recommendation TEXT,
+  explainer TEXT,
+  compliance_violations TEXT[] DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  salt VARCHAR(100) NOT NULL,
+  role VARCHAR(50) DEFAULT 'user',
+  email_verified BOOLEAN DEFAULT false,
+  verification_token VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token VARCHAR(255) PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
