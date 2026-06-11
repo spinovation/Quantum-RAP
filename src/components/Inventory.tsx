@@ -386,7 +386,15 @@ export const Inventory: React.FC<InventoryProps> = ({
 
   // API credentials and connection configuration state
   const [selectedConfigSource, setSelectedConfigSource] = useState<string | null>(null);
-  const [connectedSources, setConnectedSources] = useState<Record<string, { clientId: string; hasSecret: boolean; hasPrivateKey: boolean; token?: string; lastSynced?: string }>>({});
+  const [connectedSources, setConnectedSources] = useState<Record<string, { clientId: string; hasSecret: boolean; hasPrivateKey: boolean; token?: string; lastSynced?: string }>>({
+    aws: {
+      clientId: 'sa_discovery_aws@spinovation.com',
+      hasSecret: true,
+      hasPrivateKey: false,
+      token: 'oauth_token_aws_sec_9a2f5b8e7c6d4a1b',
+      lastSynced: '14:02:21'
+    }
+  });
   
   // Modal form fields state
   const [authMode, setAuthMode] = useState<'secret' | 'key'>('secret');
