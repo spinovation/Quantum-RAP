@@ -194,22 +194,51 @@ export const Inventory: React.FC<InventoryProps> = ({
       azure: 'Azure Key Vault & ARM API Connector',
       gcp: 'GCP Certificate Manager & Load Balancer API',
       k8s: 'Kubernetes Ingress & Secrets Mesh Controller',
-      splunk: 'Splunk SIEM Syslog Parser',
+      splunk: 'Splunk SIEM API Logs Analyzer',
+      defender: 'Microsoft Defender Endpoint API Core',
+      crowdstrike: 'CrowdStrike Falcon Threat Intelligence',
+      qualys: 'Qualys VMDR Vuln Sync Client',
+      tenable: 'Tenable SecurityCenter API Ingestion',
+      workday: 'Workday HR Directory Owner Mapper',
+      sharepoint: 'SharePoint Document Dependency Crawler',
       servicenow: 'ServiceNow CMDB Dependency Syncer'
     };
 
     const targetConnector = connectorNames[selectedConnector] || 'API Cloud Connector';
+    const nowStr = new Date().toLocaleTimeString();
+
+    // Custom logs based on selected connector
+    let scanLog = `[${nowStr}] [SCAN] Querying active resource configurations. Ingesting schema descriptors...`;
+    let correlationLog = `[${nowStr}] [CORRELATE] Resolving ownership records from Active Directory & ServiceNow service catalogs...`;
+
+    if (selectedConnector === 'workday') {
+      scanLog = `[${nowStr}] [WORKDAY-SYNC] Fetching organizational hierarchy and manager profiles...`;
+      correlationLog = `[${nowStr}] [IDENTITY-MAP] Linking cryptosystem owners to Workday cost-centers and Slack handles...`;
+    } else if (selectedConnector === 'sharepoint') {
+      scanLog = `[${nowStr}] [SP-CRAWL] Parsing SharePoint document libraries for SSL/TLS configuration spreadsheets...`;
+      correlationLog = `[${nowStr}] [DOC-CORRELATE] Mapping SharePoint asset registers to discovered endpoints...`;
+    } else if (selectedConnector === 'defender') {
+      scanLog = `[${nowStr}] [DEFENDER-SCAN] Extracting network connection logs and handshake telemetry from endpoints...`;
+      correlationLog = `[${nowStr}] [POLICY] Identifying TLS versions and cipher suites in active use by endpoints...`;
+    } else if (selectedConnector === 'crowdstrike') {
+      scanLog = `[${nowStr}] [FALCON-INTEL] Querying Falcon network traffic metadata for legacy SSL handshakes...`;
+      correlationLog = `[${nowStr}] [ZERO-TRUST] Mapping encryption tunnels to domain controllers...`;
+    } else if (selectedConnector === 'qualys' || selectedConnector === 'tenable') {
+      const toolName = selectedConnector === 'qualys' ? 'Qualys' : 'Tenable';
+      scanLog = `[${nowStr}] [${toolName.toUpperCase()}-INGEST] Fetching active host vulnerabilities and SSL/TLS scan results...`;
+      correlationLog = `[${nowStr}] [VULN-MATCH] Cross-referencing host CVEs with quantum-vulnerable configurations...`;
+    }
 
     const logs = [
-      `[14:02:15] [CMDB-INIT] Initializing metadata-first discovery connector: ${targetConnector}...`,
-      `[14:02:16] [AUTH] Authenticating session tokens with OAuth2 credential stores...`,
-      `[14:02:17] [SCAN] Querying active resource configurations. Ingesting schema descriptors...`,
-      `[14:02:17] [GDPR-CHECK] GDPR compliance filter activated: Raw payloads, logs and user inputs are discarded.`,
-      `[14:02:18] [METADATA-FIRST] Extracting cryptographic parameters (TLS profiles, key rings, algorithms, owners)...`,
-      `[14:02:19] [CORRELATE] Resolving ownership records from Active Directory & ServiceNow service catalogs...`,
-      `[14:02:20] [PARSE] Discovered 4 cryptographic assets mapped to enterprise dependencies.`,
-      `[14:02:20] [SYNC] Registering assets into postgres database...`,
-      `[14:02:21] [SUCCESS] Metadata sync finished. 4 new assets imported into Crypto CMDB.`
+      `[${nowStr}] [CMDB-INIT] Initializing metadata-first discovery connector: ${targetConnector}...`,
+      `[${nowStr}] [AUTH] Authenticating session tokens with OAuth2 credential stores...`,
+      scanLog,
+      `[${nowStr}] [GDPR-CHECK] GDPR compliance filter activated: Raw payloads, logs and user inputs are discarded.`,
+      `[${nowStr}] [METADATA-FIRST] Extracting cryptographic parameters (TLS profiles, key rings, algorithms, owners)...`,
+      correlationLog,
+      `[${nowStr}] [PARSE] Discovered 4 cryptographic assets mapped to enterprise dependencies.`,
+      `[${nowStr}] [SYNC] Registering assets into postgres database...`,
+      `[${nowStr}] [SUCCESS] Metadata sync finished. 4 new assets imported into Crypto CMDB.`
     ];
 
     let currentLogIndex = 0;
@@ -432,8 +461,14 @@ export const Inventory: React.FC<InventoryProps> = ({
                 <option value="azure">Azure Key Vault & Resource APIs (Tier 1)</option>
                 <option value="gcp">GCP Certificate Manager & Load Balancer (Tier 1)</option>
                 <option value="k8s">Kubernetes TLS Secrets & Service Mesh (Tier 1)</option>
-                <option value="splunk">Splunk Security Logs Audit (Tier 2)</option>
-                <option value="servicenow">ServiceNow CMDB Asset Inventory (Tier 2)</option>
+                <option value="splunk">Splunk SIEM API Logs (Tier 2)</option>
+                <option value="defender">Microsoft Defender for Endpoint (Tier 2)</option>
+                <option value="crowdstrike">CrowdStrike Falcon Insight (Tier 2)</option>
+                <option value="qualys">Qualys VMDR Scanning (Tier 2)</option>
+                <option value="tenable">Tenable SecurityCenter (Tier 2)</option>
+                <option value="workday">Workday HR Identity Catalog (Tier 2)</option>
+                <option value="sharepoint">SharePoint Document Assets (Tier 2)</option>
+                <option value="servicenow">ServiceNow CMDB Service Catalog (Tier 2)</option>
               </select>
             </div>
 
