@@ -395,6 +395,21 @@ export const Inventory: React.FC<InventoryProps> = ({
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [generatedToken, setGeneratedToken] = useState('');
+  const [uploadedFileName, setUploadedFileName] = useState('');
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedFileName(file.name);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        setConfigPrivateKey(text);
+        setConnectionStatus('idle');
+      };
+      reader.readAsText(file);
+    }
+  };
 
   // Form field reset effects
   useEffect(() => {
@@ -404,12 +419,14 @@ export const Inventory: React.FC<InventoryProps> = ({
         setConfigClientId(existing.clientId);
         setConfigClientSecret(existing.hasSecret ? '••••••••••••••••' : '');
         setConfigPrivateKey(existing.hasPrivateKey ? '-----BEGIN RSA PRIVATE KEY-----\n••••••••••••••••••••\n-----END RSA PRIVATE KEY-----' : '');
+        setUploadedFileName(existing.hasPrivateKey ? 'private_key.pem' : '');
         setGeneratedToken(existing.token || '');
         setConnectionStatus('success');
       } else {
         setConfigClientId('');
         setConfigClientSecret('');
         setConfigPrivateKey('');
+        setUploadedFileName('');
         setGeneratedToken('');
         setConnectionStatus('idle');
       }
@@ -1862,6 +1879,45 @@ export const Inventory: React.FC<InventoryProps> = ({
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
                     Private Key PEM File
                   </label>
+                  
+                  {/* File Upload Box */}
+                  <div style={{ 
+                    border: '1px dashed var(--border-normal)', 
+                    borderRadius: '6px', 
+                    padding: '0.75rem', 
+                    background: 'rgba(0,0,0,0.15)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '0.75rem',
+                    cursor: 'pointer',
+                    position: 'relative'
+                  }}>
+                    <input 
+                      type="file" 
+                      accept=".pem,.key,.txt,.der" 
+                      onChange={handleFileChange}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        opacity: 0,
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <Download size={20} color="var(--accent-cyan)" />
+                    <span style={{ fontSize: '0.8rem', color: '#ffffff', textAlign: 'center' }}>
+                      {uploadedFileName ? `✓ Loaded: ${uploadedFileName}` : 'Click to select or drag Private Key file (.pem, .key)'}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      Supports standard ASCII/Base64 PEM keys
+                    </span>
+                  </div>
+
                   <textarea 
                     className="chat-text-input"
                     placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
