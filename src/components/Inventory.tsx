@@ -14,7 +14,9 @@ import {
   User,
   Activity,
   FileSpreadsheet,
-  Download
+  Download,
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 import { 
   enrichAssetCMDB
@@ -32,12 +34,16 @@ interface InventoryProps {
   onAddAssets?: (assets: AuditResult[]) => void;
 }
 
-const getMockLogsForSource = (source: string, date: string): string[] => {
+const getMockLogsForSource = (source: string, date: string, connection?: { clientId: string, token?: string }): string[] => {
   const timestamp = date === '2026-06-11' ? '14:02' : date === '2026-06-10' ? '10:15' : '11:40';
   
+  const authLog = connection 
+    ? `[${timestamp}:12] [AUTH] Authenticated securely via Service Account Client ID: '${connection.clientId}' (Access Token verified).`
+    : `[${timestamp}:12] [AUTH] Authenticated via ephemeral server platform credentials.`;
+
   const commonPrefix = [
     `[${timestamp}:10] [CMDB-INIT] Initializing cryptographic sync for source '${source.toUpperCase()}'...`,
-    `[${timestamp}:12] [AUTH] Authenticating credentials against enterprise credential vault...`,
+    authLog,
   ];
 
   const gdprLog = `[${timestamp}:14] [GDPR-CHECK] GDPR compliance filter activated: Raw payloads, logs and user inputs are discarded.`;
@@ -377,6 +383,101 @@ export const Inventory: React.FC<InventoryProps> = ({
   const [discoveredAssets, setDiscoveredAssets] = useState<AuditResult[]>([]);
   const liveTerminalRef = useRef<HTMLDivElement>(null);
 
+  // API credentials and connection configuration state
+  const [selectedConfigSource, setSelectedConfigSource] = useState<string | null>(null);
+  const [connectedSources, setConnectedSources] = useState<Record<string, { clientId: string; hasSecret: boolean; hasPrivateKey: boolean; token?: string; lastSynced?: string }>>({});
+  
+  // Modal form fields state
+  const [authMode, setAuthMode] = useState<'secret' | 'key'>('secret');
+  const [configClientId, setConfigClientId] = useState('');
+  const [configClientSecret, setConfigClientSecret] = useState('');
+  const [configPrivateKey, setConfigPrivateKey] = useState('');
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
+  const [generatedToken, setGeneratedToken] = useState('');
+
+  // Form field reset effects
+  useEffect(() => {
+    if (selectedConfigSource) {
+      const existing = connectedSources[selectedConfigSource];
+      if (existing) {
+        setConfigClientId(existing.clientId);
+        setConfigClientSecret(existing.hasSecret ? '••••••••••••••••' : '');
+        setConfigPrivateKey(existing.hasPrivateKey ? '-----BEGIN RSA PRIVATE KEY-----\n••••••••••••••••••••\n-----END RSA PRIVATE KEY-----' : '');
+        setGeneratedToken(existing.token || '');
+        setConnectionStatus('success');
+      } else {
+        setConfigClientId('');
+        setConfigClientSecret('');
+        setConfigPrivateKey('');
+        setGeneratedToken('');
+        setConnectionStatus('idle');
+      }
+      setAuthMode('secret');
+    }
+  }, [selectedConfigSource, connectedSources]);
+
+  // Modal open/close effects
+  useEffect(() => {
+    const dialog = document.getElementById('connection-settings-dialog') as HTMLDialogElement;
+    if (selectedConfigSource && dialog) {
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else if (!selectedConfigSource && dialog) {
+      if (dialog.open) {
+        dialog.close();
+      }
+    }
+  }, [selectedConfigSource]);
+
+  const handleTestConnection = () => {
+    if (!configClientId) {
+      alert('Please enter a Client ID or Username.');
+      return;
+    }
+    
+    setIsTestingConnection(true);
+    setConnectionStatus('testing');
+    
+    setTimeout(() => {
+      const randomHex = Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+      let mockToken = '';
+      if (selectedConfigSource) {
+        const srcCode = selectedConfigSource.toUpperCase();
+        if (authMode === 'secret') {
+          mockToken = `oauth_token_${srcCode.toLowerCase()}_sec_${randomHex.substring(0, 16)}`;
+        } else {
+          mockToken = `jwt_token_${srcCode.toLowerCase()}_pkey_${randomHex.substring(0, 24)}`;
+        }
+      }
+      setGeneratedToken(mockToken);
+      setConnectionStatus('success');
+      setIsTestingConnection(false);
+    }, 1500);
+  };
+
+  const handleSaveConfiguration = () => {
+    if (!selectedConfigSource) return;
+    if (!configClientId) {
+      alert('Please configure at least a Client ID / Username.');
+      return;
+    }
+    
+    setConnectedSources(prev => ({
+      ...prev,
+      [selectedConfigSource]: {
+        clientId: configClientId,
+        hasSecret: authMode === 'secret' && !!configClientSecret,
+        hasPrivateKey: authMode === 'key' && !!configPrivateKey,
+        token: generatedToken || `temp_token_${Math.random().toString(36).substring(7)}`,
+        lastSynced: new Date().toLocaleTimeString()
+      }
+    }));
+    
+    setSelectedConfigSource(null);
+  };
+
   // History selectors state
   const [selectedAuditDate, setSelectedAuditDate] = useState('2026-06-11');
   const [logCategory, setLogCategory] = useState<'api' | 'integration'>('api');
@@ -560,7 +661,8 @@ export const Inventory: React.FC<InventoryProps> = ({
     setDiscoveredAssets([]);
 
     // Get realistic logs based on date 2026-06-11 and selectedSource
-    const logs = getMockLogsForSource(selectedSource, '2026-06-11');
+    const connection = connectedSources[selectedSource];
+    const logs = getMockLogsForSource(selectedSource, '2026-06-11', connection);
     const newAssets = getDiscoveryAssetsForSource(selectedSource);
 
     let currentLogIndex = 0;
@@ -815,8 +917,9 @@ export const Inventory: React.FC<InventoryProps> = ({
     if (dateRegistry && dateRegistry[activeSource]) {
       return dateRegistry[activeSource];
     }
-    return getMockLogsForSource(activeSource, selectedAuditDate);
-  }, [syncLogsRegistry, selectedAuditDate, logCategory, selectedAuditApiTopic, selectedAuditIntegrationSource]);
+    const connection = connectedSources[activeSource];
+    return getMockLogsForSource(activeSource, selectedAuditDate, connection);
+  }, [syncLogsRegistry, selectedAuditDate, logCategory, selectedAuditApiTopic, selectedAuditIntegrationSource, connectedSources]);
 
   return (
     <>
@@ -855,38 +958,58 @@ export const Inventory: React.FC<InventoryProps> = ({
               Connect agentless APIs and other internal systems to sync cryptographic inventory. Ingests metadata only (GDPR compliant).
             </p>
 
-            {/* Select connector & Trigger button side-by-side */}
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '0.75rem' }}>
+            {/* Select connector & settings & Trigger button side-by-side */}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', marginBottom: '0.75rem' }}>
               <div style={{ flexGrow: 1 }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
                   Select Active Integration / API Source
                 </label>
-                <select 
-                  value={selectedSource} 
-                  onChange={(e) => setSelectedSource(e.target.value)}
-                  className="chat-text-input" 
-                  style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem', width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff' }}
-                >
-                  <optgroup label="Direct Cloud & Network API Connectors" style={{ background: 'var(--bg-card)', color: 'var(--accent-cyan)' }}>
-                    <option value="aws" style={{ color: '#ffffff' }}>AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
-                    <option value="azure" style={{ color: '#ffffff' }}>Azure: Graph API, Key Vault, Azure Resource Manager</option>
-                    <option value="gcp" style={{ color: '#ffffff' }}>GCP: Certificates, Load Balancers</option>
-                    <option value="k8s" style={{ color: '#ffffff' }}>Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh</option>
-                    <option value="f5" style={{ color: '#ffffff' }}>F5: SSL Profiles, VIPs, Certificates</option>
-                    <option value="paloalto" style={{ color: '#ffffff' }}>Palo Alto: VPNs, Certificates</option>
-                    <option value="cisco" style={{ color: '#ffffff' }}>Cisco: VPN Infrastructure</option>
-                  </optgroup>
-                  <optgroup label="Other Internal Sources" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
-                    <option value="splunk" style={{ color: '#ffffff' }}>Splunk: Connect as Splunk User & query 'ia' index</option>
-                    <option value="defender" style={{ color: '#ffffff' }}>Microsoft Defender: Extract active endpoint host certs</option>
-                    <option value="crowdstrike" style={{ color: '#ffffff' }}>CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
-                    <option value="qualys" style={{ color: '#ffffff' }}>Qualys: Sync discovered host SSL configurations</option>
-                    <option value="tenable" style={{ color: '#ffffff' }}>Tenable: Ingest Nessus SSL scan profiles</option>
-                    <option value="workday" style={{ color: '#ffffff' }}>Workday: Sync directory names & owner identities</option>
-                    <option value="sharepoint" style={{ color: '#ffffff' }}>SharePoint: Parse asset inventory documents</option>
-                    <option value="servicenow" style={{ color: '#ffffff' }}>ServiceNow: Get configuration items & create tickets</option>
-                  </optgroup>
-                </select>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <select 
+                    value={selectedSource} 
+                    onChange={(e) => setSelectedSource(e.target.value)}
+                    className="chat-text-input" 
+                    style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem', flexGrow: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff', minWidth: '0' }}
+                  >
+                    <optgroup label="Direct Cloud & Network API Connectors" style={{ background: 'var(--bg-card)', color: 'var(--accent-cyan)' }}>
+                      <option value="aws" style={{ color: '#ffffff' }}>AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
+                      <option value="azure" style={{ color: '#ffffff' }}>Azure: Graph API, Key Vault, Azure Resource Manager</option>
+                      <option value="gcp" style={{ color: '#ffffff' }}>GCP: Certificates, Load Balancers</option>
+                      <option value="k8s" style={{ color: '#ffffff' }}>Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh</option>
+                      <option value="f5" style={{ color: '#ffffff' }}>F5: SSL Profiles, VIPs, Certificates</option>
+                      <option value="paloalto" style={{ color: '#ffffff' }}>Palo Alto: VPNs, Certificates</option>
+                      <option value="cisco" style={{ color: '#ffffff' }}>Cisco: VPN Infrastructure</option>
+                    </optgroup>
+                    <optgroup label="Other Internal Sources" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
+                      <option value="splunk" style={{ color: '#ffffff' }}>Splunk: Connect as Splunk User & query 'ia' index</option>
+                      <option value="defender" style={{ color: '#ffffff' }}>Microsoft Defender: Extract active endpoint host certs</option>
+                      <option value="crowdstrike" style={{ color: '#ffffff' }}>CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
+                      <option value="qualys" style={{ color: '#ffffff' }}>Qualys: Sync discovered host SSL configurations</option>
+                      <option value="tenable" style={{ color: '#ffffff' }}>Tenable: Ingest Nessus SSL scan profiles</option>
+                      <option value="workday" style={{ color: '#ffffff' }}>Workday: Sync directory names & owner identities</option>
+                      <option value="sharepoint" style={{ color: '#ffffff' }}>SharePoint: Parse asset inventory documents</option>
+                      <option value="servicenow" style={{ color: '#ffffff' }}>ServiceNow: Get configuration items & create tickets</option>
+                    </optgroup>
+                  </select>
+                  <button
+                    onClick={() => setSelectedConfigSource(selectedSource)}
+                    className="btn-secondary"
+                    style={{ 
+                      padding: '0.4rem', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      height: '32px', 
+                      width: '32px', 
+                      flexShrink: 0,
+                      borderColor: connectedSources[selectedSource] ? 'var(--status-secure)' : 'var(--border-normal)',
+                      color: connectedSources[selectedSource] ? 'var(--status-secure)' : 'var(--text-secondary)'
+                    }}
+                    title="Configure API Credentials & Service Account settings"
+                  >
+                    <Settings size={15} />
+                  </button>
+                </div>
               </div>
               <button 
                 onClick={triggerDiscovery}
@@ -1639,6 +1762,176 @@ export const Inventory: React.FC<InventoryProps> = ({
             </div>
           );
         })()}
+      </dialog>
+
+      {/* API Connection Credentials & Service Account settings Modal */}
+      <dialog 
+        id="connection-settings-dialog"
+        onClose={() => setSelectedConfigSource(null)}
+        style={{
+          width: '550px',
+          maxWidth: '90%',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-normal)',
+          borderRadius: '8px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
+          padding: 0
+        }}
+      >
+        {selectedConfigSource && (
+          <div style={{ color: '#ffffff' }}>
+            <div className="dialog-header" style={{ borderBottom: '1px solid var(--border-normal)', padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="dialog-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>
+                <Settings size={18} color="var(--accent-cyan)" />
+                <span>Configure Integration: {selectedConfigSource.toUpperCase()}</span>
+              </h3>
+              <button 
+                onClick={() => setSelectedConfigSource(null)} 
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="dialog-body" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                Configure secure Service Account details or a Private Key to authorize agentless API discovery for <strong>{selectedConfigSource.toUpperCase()}</strong>.
+              </p>
+
+              {/* Authentication Mode Selector */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                  Authentication Mode
+                </label>
+                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.2rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="authMode" 
+                      checked={authMode === 'secret'} 
+                      onChange={() => setAuthMode('secret')} 
+                    />
+                    <span>Service Account (Client ID & Secret)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="authMode" 
+                      checked={authMode === 'key'} 
+                      onChange={() => setAuthMode('key')} 
+                    />
+                    <span>Private Key File (PEM)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Client ID / Service Account Username */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                  Client ID / Service Account Username
+                </label>
+                <input 
+                  type="text" 
+                  className="chat-text-input"
+                  placeholder="e.g. sa_quarkshield_sync@enterprise.com"
+                  value={configClientId}
+                  onChange={(e) => setConfigClientId(e.target.value)}
+                  style={{ width: '100%', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              {/* Conditional Inputs */}
+              {authMode === 'secret' ? (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                    Client Secret / API Password
+                  </label>
+                  <input 
+                    type="password" 
+                    className="chat-text-input"
+                    placeholder="Enter secure API client secret"
+                    value={configClientSecret}
+                    onChange={(e) => setConfigClientSecret(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                    Private Key PEM File
+                  </label>
+                  <textarea 
+                    className="chat-text-input"
+                    placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
+                    rows={4}
+                    value={configPrivateKey}
+                    onChange={(e) => setConfigPrivateKey(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 0.75rem', fontSize: '0.85rem', fontFamily: 'monospace', resize: 'vertical' }}
+                  />
+                </div>
+              )}
+
+              {/* Secure Storage Note */}
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.15)', padding: '0.6rem 0.75rem', borderRadius: '4px' }}>
+                <ShieldCheck size={16} color="var(--status-secure)" />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  Credentials will be encrypted and stored in the localized QuarkShield Secure Hardware Enclave.
+                </span>
+              </div>
+
+              {/* Connection Verification Section */}
+              <div style={{ borderTop: '1px solid var(--border-normal)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button 
+                    type="button" 
+                    className="btn-secondary" 
+                    onClick={handleTestConnection}
+                    disabled={isTestingConnection}
+                    style={{ fontSize: '0.8rem', padding: '0.4rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    {isTestingConnection ? <RefreshCw size={12} className="spin" /> : <Activity size={12} />}
+                    <span>{isTestingConnection ? 'Verifying...' : 'Test Connection & Generate Token'}</span>
+                  </button>
+                  
+                  {connectionStatus === 'success' && (
+                    <span style={{ fontSize: '0.8rem', color: 'var(--status-secure)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      ✓ Connected & Authorized
+                    </span>
+                  )}
+                </div>
+
+                {generatedToken && (
+                  <div style={{ marginTop: '0.75rem', background: '#090a0f', border: '1px solid var(--border-normal)', padding: '0.5rem 0.75rem', borderRadius: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Generated Access Token</span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--status-secure)', fontWeight: 600 }}>Expires in 1 hr</span>
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--accent-cyan)', wordBreak: 'break-all', userSelect: 'all' }}>
+                      {generatedToken}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="dialog-actions" style={{ borderTop: '1px solid var(--border-normal)', padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button 
+                className="btn-secondary" 
+                onClick={() => setSelectedConfigSource(null)}
+                style={{ padding: '0.5rem 1.25rem' }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-primary" 
+                onClick={handleSaveConfiguration}
+                style={{ padding: '0.5rem 1.25rem' }}
+              >
+                Save Configuration
+              </button>
+            </div>
+          </div>
+        )}
       </dialog>
     </>
   );
