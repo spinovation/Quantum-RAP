@@ -1384,17 +1384,18 @@ export const Inventory: React.FC<InventoryProps> = ({
               onClick={handleExportAuditTrail}
               className="btn-secondary"
               style={{ 
-                padding: '0.15rem 0.5rem', 
-                fontSize: '0.7rem', 
+                padding: '0.25rem 0.6rem', 
+                fontSize: '0.75rem', 
                 display: 'inline-flex', 
                 alignItems: 'center', 
-                gap: '0.25rem',
-                borderColor: 'rgba(0, 243, 255, 0.25)',
-                color: 'var(--accent-cyan)'
+                gap: '0.3rem',
+                borderColor: 'rgba(0, 243, 255, 0.3)',
+                color: 'var(--accent-cyan)',
+                whiteSpace: 'nowrap'
               }}
               title="Export raw sync audit trail to file"
             >
-              <Download size={11} />
+              <Download size={13} />
               <span>Export Audit Trail</span>
             </button>
           </div>
@@ -1501,18 +1502,19 @@ export const Inventory: React.FC<InventoryProps> = ({
               onClick={handleExportCSV}
               className="btn-secondary"
               style={{ 
-                padding: '0.25rem 0.65rem', 
-                fontSize: '0.8rem', 
-                display: 'flex', 
+                padding: '0.25rem 0.6rem', 
+                fontSize: '0.75rem', 
+                display: 'inline-flex', 
                 alignItems: 'center', 
                 gap: '0.3rem',
                 borderColor: 'rgba(0, 243, 255, 0.3)',
-                color: 'var(--accent-cyan)'
+                color: 'var(--accent-cyan)',
+                whiteSpace: 'nowrap'
               }}
               title="Export filtered records to CSV"
             >
               <FileSpreadsheet size={13} />
-              <span>Export CSV</span>
+              <span>Export to CSV</span>
             </button>
           </div>
         </div>
