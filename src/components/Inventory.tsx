@@ -670,7 +670,7 @@ export const Inventory: React.FC<InventoryProps> = ({
     const uniqueAlgs = Array.from(new Set(serviceAssets.map(a => a.algorithm)));
 
     const width = 850;
-    const height = 280;
+    const height = 200;
 
     // X coordinates for the 5 levels
     const xPositions = [50, 230, 420, 610, 780];
@@ -834,7 +834,7 @@ export const Inventory: React.FC<InventoryProps> = ({
         display: 'grid', 
         gridTemplateColumns: 'minmax(300px, 15fr) minmax(450px, 22fr)', 
         gap: '1.5rem', 
-        marginBottom: '1.5rem',
+        marginBottom: '0.75rem',
         alignItems: 'stretch'
       }}>
         {/* Discovery Panel */}
@@ -847,56 +847,57 @@ export const Inventory: React.FC<InventoryProps> = ({
           border: '1px solid var(--border-normal)'
         }}>
           <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: '#ffffff' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem', color: '#ffffff' }}>
               <Database size={18} color="var(--accent-cyan)" />
               <span>Metadata Discovery & Integrations</span>
             </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: '1.4' }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: '1.3' }}>
               Connect agentless APIs and other internal systems to sync cryptographic inventory. Ingests metadata only (GDPR compliant).
             </p>
 
-            {/* Select connector */}
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
-                Select Active Integration / API Source
-              </label>
-              <select 
-                value={selectedSource} 
-                onChange={(e) => setSelectedSource(e.target.value)}
-                className="chat-text-input" 
-                style={{ padding: '0.5rem', fontSize: '0.9rem', width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff' }}
+            {/* Select connector & Trigger button side-by-side */}
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '0.75rem' }}>
+              <div style={{ flexGrow: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
+                  Select Active Integration / API Source
+                </label>
+                <select 
+                  value={selectedSource} 
+                  onChange={(e) => setSelectedSource(e.target.value)}
+                  className="chat-text-input" 
+                  style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem', width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff' }}
+                >
+                  <optgroup label="Direct Cloud & Network API Connectors" style={{ background: 'var(--bg-card)', color: 'var(--accent-cyan)' }}>
+                    <option value="aws" style={{ color: '#ffffff' }}>AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
+                    <option value="azure" style={{ color: '#ffffff' }}>Azure: Graph API, Key Vault, Azure Resource Manager</option>
+                    <option value="gcp" style={{ color: '#ffffff' }}>GCP: Certificates, Load Balancers</option>
+                    <option value="k8s" style={{ color: '#ffffff' }}>Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh</option>
+                    <option value="f5" style={{ color: '#ffffff' }}>F5: SSL Profiles, VIPs, Certificates</option>
+                    <option value="paloalto" style={{ color: '#ffffff' }}>Palo Alto: VPNs, Certificates</option>
+                    <option value="cisco" style={{ color: '#ffffff' }}>Cisco: VPN Infrastructure</option>
+                  </optgroup>
+                  <optgroup label="Other Internal Sources" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
+                    <option value="splunk" style={{ color: '#ffffff' }}>Splunk: Connect as Splunk User & query 'ia' index</option>
+                    <option value="defender" style={{ color: '#ffffff' }}>Microsoft Defender: Extract active endpoint host certs</option>
+                    <option value="crowdstrike" style={{ color: '#ffffff' }}>CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
+                    <option value="qualys" style={{ color: '#ffffff' }}>Qualys: Sync discovered host SSL configurations</option>
+                    <option value="tenable" style={{ color: '#ffffff' }}>Tenable: Ingest Nessus SSL scan profiles</option>
+                    <option value="workday" style={{ color: '#ffffff' }}>Workday: Sync directory names & owner identities</option>
+                    <option value="sharepoint" style={{ color: '#ffffff' }}>SharePoint: Parse asset inventory documents</option>
+                    <option value="servicenow" style={{ color: '#ffffff' }}>ServiceNow: Get configuration items & create tickets</option>
+                  </optgroup>
+                </select>
+              </div>
+              <button 
+                onClick={triggerDiscovery}
+                disabled={isDiscovering}
+                className="btn-primary" 
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.5rem 1rem', height: '32px', flexShrink: 0 }}
               >
-                <optgroup label="Direct Cloud & Network API Connectors" style={{ background: 'var(--bg-card)', color: 'var(--accent-cyan)' }}>
-                  <option value="aws" style={{ color: '#ffffff' }}>AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
-                  <option value="azure" style={{ color: '#ffffff' }}>Azure: Graph API, Key Vault, Azure Resource Manager</option>
-                  <option value="gcp" style={{ color: '#ffffff' }}>GCP: Certificates, Load Balancers</option>
-                  <option value="k8s" style={{ color: '#ffffff' }}>Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh</option>
-                  <option value="f5" style={{ color: '#ffffff' }}>F5: SSL Profiles, VIPs, Certificates</option>
-                  <option value="paloalto" style={{ color: '#ffffff' }}>Palo Alto: VPNs, Certificates</option>
-                  <option value="cisco" style={{ color: '#ffffff' }}>Cisco: VPN Infrastructure</option>
-                </optgroup>
-                <optgroup label="Other Internal Sources" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
-                  <option value="splunk" style={{ color: '#ffffff' }}>Splunk: Connect as Splunk User & query 'ia' index</option>
-                  <option value="defender" style={{ color: '#ffffff' }}>Microsoft Defender: Extract active endpoint host certs</option>
-                  <option value="crowdstrike" style={{ color: '#ffffff' }}>CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
-                  <option value="qualys" style={{ color: '#ffffff' }}>Qualys: Sync discovered host SSL configurations</option>
-                  <option value="tenable" style={{ color: '#ffffff' }}>Tenable: Ingest Nessus SSL scan profiles</option>
-                  <option value="workday" style={{ color: '#ffffff' }}>Workday: Sync directory names & owner identities</option>
-                  <option value="sharepoint" style={{ color: '#ffffff' }}>SharePoint: Parse asset inventory documents</option>
-                  <option value="servicenow" style={{ color: '#ffffff' }}>ServiceNow: Get configuration items & create tickets</option>
-                </optgroup>
-              </select>
+                <Play size={13} />
+                <span>{isDiscovering ? 'Syncing...' : 'Trigger Discovery'}</span>
+              </button>
             </div>
-
-            <button 
-              onClick={triggerDiscovery}
-              disabled={isDiscovering}
-              className="btn-primary" 
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.65rem' }}
-            >
-              <Play size={15} />
-              <span>{isDiscovering ? 'Running API Metadata Sync...' : 'Trigger Metadata Discovery'}</span>
-            </button>
           </div>
 
           {/* Simulated Logs Terminal */}
@@ -908,7 +909,7 @@ export const Inventory: React.FC<InventoryProps> = ({
             <div 
               ref={liveTerminalRef}
               style={{ 
-                height: '110px', 
+                height: '80px', 
                 background: '#090a0f', 
                 border: '1px solid var(--border-normal)', 
                 borderRadius: '6px', 
@@ -922,7 +923,7 @@ export const Inventory: React.FC<InventoryProps> = ({
               }}
             >
               {liveDiscoveryLogs.length === 0 ? (
-                <span style={{ color: 'var(--text-muted)' }}>Idle. Click "Trigger Metadata Discovery" to execute live cloud scan.</span>
+                <span style={{ color: 'var(--text-muted)' }}>Idle. Click "Trigger Discovery" to execute live cloud scan.</span>
               ) : (
                 liveDiscoveryLogs.join('\n')
               )}
@@ -931,11 +932,11 @@ export const Inventory: React.FC<InventoryProps> = ({
 
           {/* Recently Discovered Assets list */}
           {!isDiscovering && liveDiscoveryLogs.length > 0 && discoveredAssets.length > 0 && (
-            <div style={{ marginTop: '1rem', animation: 'fadeIn 0.3s' }}>
-              <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+            <div style={{ marginTop: '0.75rem', animation: 'fadeIn 0.3s' }}>
+              <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.3rem' }}>
                 Discovered Cryptographic Assets ({discoveredAssets.length})
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '100px', overflowY: 'auto' }}>
                 {discoveredAssets.map((asset) => {
                   const enriched = enrichAssetCMDB(asset);
                   return (
@@ -1009,7 +1010,7 @@ export const Inventory: React.FC<InventoryProps> = ({
             border: '1px solid var(--border-normal)', 
             borderRadius: '6px', 
             position: 'relative', 
-            minHeight: '230px',
+            height: '190px',
             overflow: 'auto'
           }}>
             {svgGraph ? (
