@@ -31,63 +31,330 @@ interface InventoryProps {
   onAddAssets?: (assets: AuditResult[]) => void;
 }
 
-const DISCOVERY_ASSETS: AuditResult[] = [
-  {
-    id: 'aws-acm-1',
-    type: 'certificate',
-    name: 'aws-acm-payment-elb-cert',
-    algorithm: 'RSA',
-    keySize: 2048,
-    isVulnerable: true,
-    riskLevel: 'high',
-    status: 'Quantum Vulnerable',
-    description: 'AWS ACM certificate for payments load balancer. |CMDB:{"businessService":"Transactional Core Payment","application":"PayShield API","endpoint":"api.payments.enterprise.com","owner":"payment-infra@spinovation.com","lifecycle":"Active"}',
-    recommendation: 'Request post-quantum hybrid certificate from ACM or associate with Cloudflare proxy enforcing hybrid key exchange.',
-    explainer: 'Asymmetric cryptography used in AWS ELB TLS handshakes (RSA) is vulnerable to Shor\'s algorithm.',
-    complianceViolations: ['CNSA 2.0', 'EO 14028']
-  },
-  {
-    id: 'azure-kv-1',
-    type: 'ssh_key',
-    name: 'azure-kv-vm-root-key',
-    algorithm: 'RSA',
-    keySize: 4096,
-    isVulnerable: true,
-    riskLevel: 'high',
-    status: 'Quantum Vulnerable',
-    description: 'Virtual machine administrator access key stored in Azure Key Vault. |CMDB:{"businessService":"Corporate Identity Services","application":"Bastion Gateway","endpoint":"bastion.secure.enterprise.com","owner":"secops@spinovation.com","lifecycle":"Active"}',
-    recommendation: 'Rotate VMs to utilize hybrid OpenSSH certificates.',
-    explainer: 'RSA-4096 is vulnerable to Shor\'s discrete logarithm calculations.',
-    complianceViolations: ['CNSA 2.0']
-  },
-  {
-    id: 'splunk-discovered-1',
-    type: 'url',
-    name: 'internal-reporting-api',
-    algorithm: 'ECDSA',
-    keySize: 384,
-    isVulnerable: true,
-    riskLevel: 'high',
-    status: 'Quantum Vulnerable',
-    description: 'Discovered via Splunk audit logs analyzing SSL handshakes. |CMDB:{"businessService":"Enterprise Infrastructure","application":"Reporting Engine","endpoint":"reports.internal.enterprise.com","owner":"analytics@spinovation.com","lifecycle":"Active"}',
-    recommendation: 'Update endpoint TLS profile to support hybrid ML-KEM exchange.',
-    explainer: 'ECDSA P-384 discrete logarithms can be completely solved by Shor\'s algorithm.',
-    complianceViolations: ['CNSA 2.0']
-  },
-  {
-    id: 'servicenow-tracked-1',
-    type: 'config',
-    name: 'kubernetes-ingress-routing',
-    algorithm: 'SHA1',
-    isVulnerable: true,
-    riskLevel: 'critical',
-    status: 'Quantum Vulnerable',
-    description: 'Kubernetes routing config utilizing weak hash algorithms. |CMDB:{"businessService":"Transactional Core Payment","application":"PayShield API","endpoint":"api.payments.enterprise.com","owner":"k8s-admin@spinovation.com","lifecycle":"Active"}',
-    recommendation: 'Update ingress controller config map to enforce SHA-256 for integrity checks.',
-    explainer: 'SHA1 references in configurations are vulnerable to collision attacks and quantum Grover speedup.',
-    complianceViolations: ['NIST SP 800-131A']
+const getMockLogsForSource = (source: string, date: string): string[] => {
+  const timestamp = date === '2026-06-11' ? '14:02' : date === '2026-06-10' ? '10:15' : '11:40';
+  
+  const commonPrefix = [
+    `[${timestamp}:10] [CMDB-INIT] Initializing cryptographic sync for source '${source.toUpperCase()}'...`,
+    `[${timestamp}:12] [AUTH] Authenticating credentials against enterprise credential vault...`,
+  ];
+
+  const gdprLog = `[${timestamp}:14] [GDPR-CHECK] GDPR compliance filter activated: Raw payloads, logs and user inputs are discarded.`;
+  
+  let specificLogs: string[] = [];
+  
+  switch (source) {
+    case 'aws':
+      specificLogs = [
+        `[${timestamp}:15] [AWS-SCAN] Syncing ACM certificates, ELB targets, API Gateways, IAM SSH keys & Secrets Manager ciphers...`,
+        `[${timestamp}:18] [METADATA-FIRST] Extracting cryptographic parameters (TLS profiles, key size, algorithms, owners)...`,
+        `[${timestamp}:20] [AWS-MATCH] Correlating EC2 load balancers with active AWS ACM private keys...`,
+        `[${timestamp}:22] [PARSE] Discovered 1 cryptographic asset mapped to transactional pay services.`,
+      ];
+      break;
+    case 'azure':
+      specificLogs = [
+        `[${timestamp}:15] [AZURE-SYNC] Querying Key Vault secrets, ARM template parameters and Azure Graph API active users...`,
+        `[${timestamp}:18] [METADATA-FIRST] Extracting active certificate keys and SSH credentials...`,
+        `[${timestamp}:20] [AZURE-MATCH] Mapping Azure Active Directory identities to Key Vault secrets...`,
+        `[${timestamp}:22] [PARSE] Extracted application context 'bastion-gateway' and tenant metadata.`,
+      ];
+      break;
+    case 'gcp':
+      specificLogs = [
+        `[${timestamp}:15] [GCP-SYNC] Fetching GCP Certificate Manager descriptors and HTTPS Load Balancer targets...`,
+        `[${timestamp}:18] [METADATA-FIRST] Reading SSL profiles and frontend target configuration...`,
+        `[${timestamp}:20] [GCP-MATCH] Cross-referencing GCP target pools with active SSL bindings...`,
+        `[${timestamp}:22] [PARSE] Found 1 target endpoint using RSA-2048 SSL certificate.`,
+      ];
+      break;
+    case 'k8s':
+      specificLogs = [
+        `[${timestamp}:15] [K8S-SCAN] Querying K8s TLS Secrets, Ingress controller routes (Nginx/Traefik) and Istio Service Mesh configs...`,
+        `[${timestamp}:18] [METADATA-FIRST] Ingesting TLS Secrets namespace metadata (Owner, Application name)...`,
+        `[${timestamp}:20] [K8S-MATCH] Mapping service-to-service mutual TLS (mTLS) cipher restrictions...`,
+        `[${timestamp}:22] [PARSE] Parsed Traefik ingress configuration mapping endpoints to service namespaces.`,
+      ];
+      break;
+    case 'f5':
+      specificLogs = [
+        `[${timestamp}:15] [F5-INGEST] Loading ClientSSL/ServerSSL profiles, virtual server VIP definitions and Big-IP certificates...`,
+        `[${timestamp}:18] [METADATA-FIRST] Collecting local SSL profile parameters...`,
+        `[${timestamp}:20] [F5-MAP] Pinpointing legacy virtual IP (VIP) profiles enforcing RSA key exchanges...`,
+        `[${timestamp}:22] [PARSE] Located obsolete virtual server profile utilizing weak SHA-1 hash algorithm.`,
+      ];
+      break;
+    case 'paloalto':
+      specificLogs = [
+        `[${timestamp}:15] [PAN-CRAWL] Extracting GlobalProtect VPN gateway profiles, IPSec tunnels and active client certificates...`,
+        `[${timestamp}:18] [METADATA-FIRST] Ingesting VPN security profile configuration parameters...`,
+        `[${timestamp}:20] [PAN-MATCH] Identifying legacy IKE phase 1/2 proposals using weak Diffie-Hellman groups...`,
+        `[${timestamp}:22] [PARSE] Found active VPN profile utilizing vulnerable RSA-2048 key exchange.`,
+      ];
+      break;
+    case 'cisco':
+      specificLogs = [
+        `[${timestamp}:15] [CISCO-CRAWL] Fetching AnyConnect VPN profiles, ASA cryptomaps and ISAKMP parameters...`,
+        `[${timestamp}:18] [METADATA-FIRST] Extracting TLS and cipher configurations from ASA routers...`,
+        `[${timestamp}:20] [CISCO-MATCH] Auditing Cisco client profile SSL cipher suites for Grover threat compliance...`,
+        `[${timestamp}:22] [PARSE] Core security gateway mapped to business service 'Enterprise Infrastructure'.`,
+      ];
+      break;
+    case 'splunk':
+      specificLogs = [
+        `[${timestamp}:15] [SPLUNK-INGEST] Connecting to Splunk Search API as user 'secops_auditor'...`,
+        `[${timestamp}:17] [SPLUNK-QUERY] Executing search: 'index="ia" sourcetype="syslog:tls" | table dest_ip, ssl_cipher, ssl_version'...`,
+        `[${timestamp}:19] [METADATA-FIRST] Extracting cryptographic endpoints and TLS ciphers from raw Splunk index...`,
+        `[${timestamp}:22] [PARSE] Correlation complete. Found 1 vulnerable cipher event in splunk TLS audits.`,
+      ];
+      break;
+    case 'defender':
+      specificLogs = [
+        `[${timestamp}:15] [DEFENDER-SCAN] Extracting network connection logs and handshake telemetry from endpoints...`,
+        `[${timestamp}:18] [METADATA-FIRST] Scanning client endpoint registry for active TLS certificates...`,
+        `[${timestamp}:20] [POLICY] Identifying TLS versions and cipher suites in active use by endpoints...`,
+        `[${timestamp}:22] [PARSE] Located 5 hosts running outdated local root certificates.`,
+      ];
+      break;
+    case 'crowdstrike':
+      specificLogs = [
+        `[${timestamp}:15] [FALCON-INTEL] Querying Falcon network traffic metadata for legacy SSL handshakes...`,
+        `[${timestamp}:18] [METADATA-FIRST] Pulling cryptographic cipher usage records across remote workspace hosts...`,
+        `[${timestamp}:20] [ZERO-TRUST] Mapping encryption tunnels to active domain controllers...`,
+        `[${timestamp}:22] [PARSE] Synced 2 endpoints using TLS 1.0 connections from legacy systems.`,
+      ];
+      break;
+    case 'qualys':
+      specificLogs = [
+        `[${timestamp}:15] [QUALYS-INGEST] Fetching active host vulnerabilities and SSL/TLS scan results...`,
+        `[${timestamp}:18] [METADATA-FIRST] Importing Qualys VMDR asset lists and vulnerability indices...`,
+        `[${timestamp}:20] [VULN-MATCH] Running configuration parsing on host SSL endpoints...`,
+        `[${timestamp}:22] [PARSE] Ingested 1 network asset with critical SSL vulnerability reports.`,
+      ];
+      break;
+    case 'tenable':
+      specificLogs = [
+        `[${timestamp}:15] [TENABLE-INGEST] Ingesting Nessus SSL scan profiles and active network asset inventories...`,
+        `[${timestamp}:18] [METADATA-FIRST] Resolving key strength metrics and encryption algorithms...`,
+        `[${timestamp}:20] [VULN-MATCH] Running vulnerability mapping for outdated public keys...`,
+        `[${timestamp}:22] [PARSE] 1 active SSH credential identified as using quantum-vulnerable algorithms.`,
+      ];
+      break;
+    case 'workday':
+      specificLogs = [
+        `[${timestamp}:15] [WORKDAY-SYNC] Fetching organizational hierarchy and manager profiles...`,
+        `[${timestamp}:18] [METADATA-FIRST] Retrieving email handles and team alignment lists...`,
+        `[${timestamp}:20] [IDENTITY-MAP] Linking cryptosystem owners to Workday cost-centers and Slack handles...`,
+        `[${timestamp}:22] [PARSE] Owner attributes matched for active inventory items.`,
+      ];
+      break;
+    case 'sharepoint':
+      specificLogs = [
+        `[${timestamp}:15] [SP-CRAWL] Parsing SharePoint document libraries for SSL/TLS configuration spreadsheets...`,
+        `[${timestamp}:18] [METADATA-FIRST] Ingesting spreadsheet tables mapping assets to business owners...`,
+        `[${timestamp}:20] [DOC-CORRELATE] Mapping SharePoint asset registers to discovered endpoints...`,
+        `[${timestamp}:22] [PARSE] Synced legacy certificate profiles from spreadsheet records.`,
+      ];
+      break;
+    case 'servicenow':
+      specificLogs = [
+        `[${timestamp}:15] [SN-SYNC] Querying Configuration Items (CIs) from ServiceNow Service Catalog...`,
+        `[${timestamp}:18] [METADATA-FIRST] Mapping CI business services, applications, and support groups...`,
+        `[${timestamp}:20] [SN-MAPPING] Synchronizing business owners, application names, and support group tables...`,
+        `[${timestamp}:22] [PARSE] ServiceNow asset configuration sync complete.`,
+      ];
+      break;
+    default:
+      specificLogs = [
+        `[${timestamp}:15] [GENERIC-SYNC] Syncing data with source ${source}...`,
+        `[${timestamp}:18] [METADATA-FIRST] Ingesting metadata descriptors...`,
+        `[${timestamp}:22] [SUCCESS] Sync session finished successfully.`,
+      ];
   }
-];
+
+  const successLogs = [
+    `[${timestamp}:24] [SYNC] Registering assets into postgres database...`,
+    `[${timestamp}:25] [SUCCESS] Synchronized log stream for ${source.toUpperCase()} completed successfully.`
+  ];
+
+  return [...commonPrefix, gdprLog, ...specificLogs, ...successLogs];
+};
+
+const getDiscoveryAssetsForSource = (source: string): AuditResult[] => {
+  const timestamp = Date.now().toString(36);
+  
+  switch (source) {
+    case 'aws':
+      return [
+        {
+          id: `aws-acm-${timestamp}-1`,
+          type: 'certificate',
+          name: 'aws-acm-payment-elb-cert',
+          algorithm: 'RSA',
+          keySize: 2048,
+          isVulnerable: true,
+          riskLevel: 'high',
+          status: 'Quantum Vulnerable',
+          description: 'AWS ACM certificate for payments load balancer. |CMDB:{"businessService":"Transactional Core Payment","application":"PayShield API","endpoint":"api.payments.enterprise.com","owner":"payment-infra@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Request post-quantum hybrid certificate from ACM or associate with Cloudflare proxy enforcing hybrid key exchange.',
+          explainer: 'Asymmetric cryptography used in AWS ELB TLS handshakes (RSA) is vulnerable to Shor\'s algorithm.',
+          complianceViolations: ['CNSA 2.0', 'EO 14028']
+        }
+      ];
+    case 'azure':
+      return [
+        {
+          id: `azure-kv-${timestamp}-1`,
+          type: 'ssh_key',
+          name: 'azure-kv-vm-root-key',
+          algorithm: 'RSA',
+          keySize: 4096,
+          isVulnerable: true,
+          riskLevel: 'high',
+          status: 'Quantum Vulnerable',
+          description: 'Virtual machine administrator access key stored in Azure Key Vault. |CMDB:{"businessService":"Corporate Identity Services","application":"Bastion Gateway","endpoint":"bastion.secure.enterprise.com","owner":"secops@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Rotate VMs to utilize hybrid OpenSSH certificates.',
+          explainer: 'RSA-4096 is vulnerable to Shor\'s discrete logarithm calculations.',
+          complianceViolations: ['CNSA 2.0']
+        }
+      ];
+    case 'gcp':
+      return [
+        {
+          id: `gcp-cert-${timestamp}-1`,
+          type: 'certificate',
+          name: 'gcp-load-balancer-ssl-cert',
+          algorithm: 'ECDSA',
+          keySize: 256,
+          isVulnerable: true,
+          riskLevel: 'high',
+          status: 'Quantum Vulnerable',
+          description: 'GCP external HTTPS load balancer SSL certificate binding. |CMDB:{"businessService":"External API Gateway","application":"Customer Portal","endpoint":"portal.enterprise.com","owner":"gcp-team@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Enable Google Cloud Certificate Manager hybrid post-quantum TLS options.',
+          explainer: 'ECDSA elliptic curves are completely broken by quantum Shor\'s algorithm.',
+          complianceViolations: ['CNSA 2.0']
+        }
+      ];
+    case 'k8s':
+      return [
+        {
+          id: `k8s-secret-${timestamp}-1`,
+          type: 'config',
+          name: 'kubernetes-ingress-routing',
+          algorithm: 'SHA1',
+          isVulnerable: true,
+          riskLevel: 'critical',
+          status: 'Quantum Vulnerable',
+          description: 'Kubernetes routing config utilizing weak hash algorithms. |CMDB:{"businessService":"Transactional Core Payment","application":"PayShield API","endpoint":"api.payments.enterprise.com","owner":"k8s-admin@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Update ingress controller config map to enforce SHA-256 for integrity checks.',
+          explainer: 'SHA1 references in configurations are vulnerable to collision attacks and quantum Grover speedup.',
+          complianceViolations: ['NIST SP 800-131A']
+        }
+      ];
+    case 'f5':
+      return [
+        {
+          id: `f5-vip-${timestamp}-1`,
+          type: 'certificate',
+          name: 'f5-bigip-external-vip-cert',
+          algorithm: 'RSA',
+          keySize: 2048,
+          isVulnerable: true,
+          riskLevel: 'high',
+          status: 'Quantum Vulnerable',
+          description: 'ClientSSL profile certificate loaded on external F5 BIG-IP LTM. |CMDB:{"businessService":"Transactional Core Payment","application":"External Checkout Gateway","endpoint":"checkout.payments.com","owner":"netops-f5@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Configure F5 SSL profile to support quantum-safe hybrid key exchange suites.',
+          explainer: 'F5 client-side SSL handshakes using RSA-2048 are vulnerable to retrospective decryption (SNDL).',
+          complianceViolations: ['CNSA 2.0', 'EO 14028']
+        }
+      ];
+    case 'paloalto':
+      return [
+        {
+          id: `pan-vpn-${timestamp}-1`,
+          type: 'certificate',
+          name: 'palo-alto-globalprotect-vpn-cert',
+          algorithm: 'ECDSA',
+          keySize: 384,
+          isVulnerable: true,
+          riskLevel: 'high',
+          status: 'Quantum Vulnerable',
+          description: 'SSL Client VPN authentication profile certificate on Palo Alto gateway. |CMDB:{"businessService":"Corporate Identity Services","application":"GlobalProtect VPN","endpoint":"vpn.corp.enterprise.com","owner":"secops@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Upgrade tunnel profiles to support Post-Quantum Hybrid IPSec VPN exchange.',
+          explainer: 'ECDSA keys used to sign VPN certificates can be broken by Shor\'s algorithm, compromising tunnel credentials.',
+          complianceViolations: ['CNSA 2.0']
+        }
+      ];
+    case 'cisco':
+      return [
+        {
+          id: `cisco-vpn-${timestamp}-1`,
+          type: 'certificate',
+          name: 'cisco-asa-anyconnect-ssl-cert',
+          algorithm: 'RSA',
+          keySize: 2048,
+          isVulnerable: true,
+          riskLevel: 'high',
+          status: 'Quantum Vulnerable',
+          description: 'Secure remote access certificate deployed on Cisco ASA cluster. |CMDB:{"businessService":"Corporate Identity Services","application":"AnyConnect VPN Gateway","endpoint":"vpn-secondary.corp.com","owner":"netops-cisco@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Transition to hybrid TLS or upgrade client profile configurations to support quantum-safe ciphers.',
+          explainer: 'RSA key exchanges are vulnerable to decryption by a quantum computer running Shor\'s algorithm.',
+          complianceViolations: ['CNSA 2.0']
+        }
+      ];
+    case 'splunk':
+      return [
+        {
+          id: `splunk-discovered-${timestamp}-1`,
+          type: 'url',
+          name: 'internal-reporting-api',
+          algorithm: 'ECDSA',
+          keySize: 384,
+          isVulnerable: true,
+          riskLevel: 'high',
+          status: 'Quantum Vulnerable',
+          description: 'Discovered via Splunk audit logs analyzing SSL handshakes. |CMDB:{"businessService":"Enterprise Infrastructure","application":"Reporting Engine","endpoint":"reports.internal.enterprise.com","owner":"analytics@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Update endpoint TLS profile to support hybrid ML-KEM exchange.',
+          explainer: 'ECDSA P-384 discrete logarithms can be completely solved by Shor\'s algorithm.',
+          complianceViolations: ['CNSA 2.0']
+        }
+      ];
+    case 'servicenow':
+      return [
+        {
+          id: `servicenow-tracked-${timestamp}-1`,
+          type: 'config',
+          name: 'legacy-api-client-cert',
+          algorithm: 'RSA',
+          keySize: 1024,
+          isVulnerable: true,
+          riskLevel: 'critical',
+          status: 'Quantum Vulnerable',
+          description: 'ServiceNow Catalog Tracked Configuration Item: microservice communication certificate. |CMDB:{"businessService":"External API Gateway","application":"Legacy Partner Client","endpoint":"legacy.partner.api.com","owner":"partnerships@spinovation.com","lifecycle":"Active"}',
+          recommendation: 'Revoke and replace immediately. RSA-1024 is vulnerable classically and critically vulnerable quantum-wise.',
+          explainer: 'RSA-1024 is at active risk of classical factorization and requires a fraction of the quantum capacity to break compared to RSA-2048.',
+          complianceViolations: ['NIST SP 800-131A', 'CNSA 2.0', 'EO 14028']
+        }
+      ];
+    default:
+      return [
+        {
+          id: `gen-discover-${timestamp}-1`,
+          type: 'certificate',
+          name: `${source}-discovered-endpoint-key`,
+          algorithm: 'RSA',
+          keySize: 2048,
+          isVulnerable: true,
+          riskLevel: 'high',
+          status: 'Quantum Vulnerable',
+          description: `Asset discovered via active ${source} crawler integrations. |CMDB:{"businessService":"Enterprise Infrastructure","application":"Core Routing","endpoint":"${source}-sync.internal","owner":"secops@spinovation.com","lifecycle":"Active"}`,
+          recommendation: 'Rotate to post-quantum hybrid algorithm.',
+          explainer: 'RSA key exchanges can be solved in polynomial time by Shor\'s algorithm.',
+          complianceViolations: ['CNSA 2.0']
+        }
+      ];
+  }
+};
 
 export const Inventory: React.FC<InventoryProps> = ({ 
   assets, 
@@ -106,11 +373,14 @@ export const Inventory: React.FC<InventoryProps> = ({
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [liveDiscoveryLogs, setLiveDiscoveryLogs] = useState<string[]>([]);
   const [selectedSource, setSelectedSource] = useState('aws');
+  const [discoveredAssets, setDiscoveredAssets] = useState<AuditResult[]>([]);
   const liveTerminalRef = useRef<HTMLDivElement>(null);
 
   // History selectors state
   const [selectedAuditDate, setSelectedAuditDate] = useState('2026-06-11');
-  const [selectedAuditSource, setSelectedAuditSource] = useState('all');
+  const [logCategory, setLogCategory] = useState<'api' | 'integration'>('api');
+  const [selectedAuditApiTopic, setSelectedAuditApiTopic] = useState<string>('all');
+  const [selectedAuditIntegrationSource, setSelectedAuditIntegrationSource] = useState<string>('all');
 
   // Historical raw logs database (mapped by Date ➔ Source)
   const [syncLogsRegistry, setSyncLogsRegistry] = useState<Record<string, Record<string, string[]>>>({
@@ -122,9 +392,9 @@ export const Inventory: React.FC<InventoryProps> = ({
         `[14:02:17] [GDPR-CHECK] GDPR compliance filter activated: Raw payloads, logs and user inputs are discarded.`,
         `[14:02:18] [METADATA-FIRST] Extracting cryptographic parameters (TLS profiles, key rings, algorithms, owners)...`,
         `[14:02:19] [AWS-MATCH] Correlating EC2 load balancers with active AWS ACM private keys...`,
-        `[14:02:20] [PARSE] Discovered 4 cryptographic assets mapped to enterprise dependencies.`,
+        `[14:02:20] [PARSE] Discovered 1 cryptographic asset mapped to transactional pay services.`,
         `[14:02:20] [SYNC] Registering assets into postgres database...`,
-        `[14:02:21] [SUCCESS] Metadata sync finished. 4 new assets imported into Crypto CMDB.`
+        `[14:02:21] [SUCCESS] Metadata sync finished. 1 new asset imported into Crypto CMDB.`
       ],
       splunk: [
         `[13:10:02] [CMDB-INIT] Initializing integration sync: Splunk SIEM API Logs Analyzer...`,
@@ -198,10 +468,12 @@ export const Inventory: React.FC<InventoryProps> = ({
       // 5. Lifecycle filter
       const matchesLifecycle = lifecycleFilter === 'all' || asset.lifecycle === lifecycleFilter;
 
-      // 6. Historical Source Filter (matches selected date and selected source)
+      // 6. Historical Source Filter
       let matchesAuditSource = true;
-      if (selectedAuditSource !== 'all') {
-        const sourceNormalized = selectedAuditSource.toLowerCase();
+      const activeSource = logCategory === 'api' ? selectedAuditApiTopic : selectedAuditIntegrationSource;
+      
+      if (activeSource !== 'all') {
+        const sourceNormalized = activeSource.toLowerCase();
         if (sourceNormalized === 'aws') {
           matchesAuditSource = asset.id.includes('aws') || asset.name.includes('aws') || asset.id === 'inv-1';
         } else if (sourceNormalized === 'azure') {
@@ -209,7 +481,7 @@ export const Inventory: React.FC<InventoryProps> = ({
         } else if (sourceNormalized === 'gcp') {
           matchesAuditSource = asset.id.includes('gcp') || asset.name.includes('gcp');
         } else if (sourceNormalized === 'k8s') {
-          matchesAuditSource = asset.id.includes('k8s') || asset.name.includes('k8s') || asset.id === 'inv-5';
+          matchesAuditSource = asset.id.includes('k8s') || asset.name.includes('k8s');
         } else if (sourceNormalized === 'f5') {
           matchesAuditSource = asset.id.includes('f5') || asset.name.includes('f5');
         } else if (sourceNormalized === 'paloalto') {
@@ -218,16 +490,37 @@ export const Inventory: React.FC<InventoryProps> = ({
           matchesAuditSource = asset.id.includes('cisco') || asset.name.includes('cisco');
         } else if (sourceNormalized === 'splunk') {
           matchesAuditSource = asset.id.includes('splunk') || asset.name.includes('splunk') || asset.id === 'inv-3';
+        } else if (sourceNormalized === 'defender') {
+          matchesAuditSource = asset.id.includes('defender') || asset.name.includes('defender');
+        } else if (sourceNormalized === 'crowdstrike') {
+          matchesAuditSource = asset.id.includes('crowdstrike') || asset.name.includes('crowdstrike');
+        } else if (sourceNormalized === 'qualys') {
+          matchesAuditSource = asset.id.includes('qualys') || asset.name.includes('qualys');
+        } else if (sourceNormalized === 'tenable') {
+          matchesAuditSource = asset.id.includes('tenable') || asset.name.includes('tenable');
+        } else if (sourceNormalized === 'workday') {
+          matchesAuditSource = asset.id.includes('workday') || asset.name.includes('workday');
+        } else if (sourceNormalized === 'sharepoint') {
+          matchesAuditSource = asset.id.includes('sharepoint') || asset.name.includes('sharepoint');
         } else if (sourceNormalized === 'servicenow') {
           matchesAuditSource = asset.id.includes('servicenow') || asset.name.includes('servicenow') || asset.id === 'inv-5';
         } else {
           matchesAuditSource = asset.name.toLowerCase().includes(sourceNormalized) || asset.id.includes(sourceNormalized);
         }
+      } else {
+        // If activeSource is 'all', filter by the active logCategory
+        const apiSources = ['aws', 'azure', 'gcp', 'k8s', 'f5', 'paloalto', 'cisco'];
+        const partnerSources = ['splunk', 'defender', 'crowdstrike', 'qualys', 'tenable', 'workday', 'sharepoint', 'servicenow'];
+        if (logCategory === 'api') {
+          matchesAuditSource = apiSources.some(src => asset.id.includes(src) || asset.name.toLowerCase().includes(src)) || asset.id === 'inv-1' || asset.id === 'inv-4';
+        } else {
+          matchesAuditSource = partnerSources.some(src => asset.id.includes(src) || asset.name.toLowerCase().includes(src)) || asset.id === 'inv-3' || asset.id === 'inv-5' || asset.id === 'inv-2';
+        }
       }
 
       return matchesSearch && matchesType && matchesStatus && matchesService && matchesLifecycle && matchesAuditSource;
     });
-  }, [enrichedAssets, searchTerm, typeFilter, statusFilter, serviceFilter, lifecycleFilter, selectedAuditSource]);
+  }, [enrichedAssets, searchTerm, typeFilter, statusFilter, serviceFilter, lifecycleFilter, logCategory, selectedAuditApiTopic, selectedAuditIntegrationSource]);
 
   // Sync scroll on logs terminal
   useEffect(() => {
@@ -263,88 +556,11 @@ export const Inventory: React.FC<InventoryProps> = ({
     if (isDiscovering) return;
     setIsDiscovering(true);
     setLiveDiscoveryLogs([]);
+    setDiscoveredAssets([]);
 
-    const connectorNames: Record<string, string> = {
-      aws: 'AWS ACM, ELB, API Gateway, IAM, Secrets Manager',
-      azure: 'Azure Graph API, Key Vault, Azure Resource Manager',
-      gcp: 'GCP Certificates & Load Balancers API',
-      k8s: 'Kubernetes TLS Secrets, Ingress Controllers, Service Mesh',
-      f5: 'F5 SSL Profiles, VIPs, Certificates',
-      paloalto: 'Palo Alto VPNs & Certificates',
-      cisco: 'Cisco VPN Infrastructure',
-      splunk: 'Splunk SIEM API Logs Analyzer',
-      defender: 'Microsoft Defender Endpoint API Core',
-      crowdstrike: 'CrowdStrike Falcon Threat Intelligence',
-      qualys: 'Qualys VMDR Vuln Sync Client',
-      tenable: 'Tenable SecurityCenter API Ingestion',
-      workday: 'Workday HR Directory Owner Mapper',
-      sharepoint: 'SharePoint Document Dependency Crawler',
-      servicenow: 'ServiceNow CMDB Dependency Syncer'
-    };
-
-    const targetConnector = connectorNames[selectedSource] || 'API Cloud Connector';
-    const nowStr = new Date().toLocaleTimeString();
-
-    // Custom logs based on selected connector
-    let scanLog = `[${nowStr}] [SCAN] Querying active resource configurations. Ingesting schema descriptors...`;
-    let correlationLog = `[${nowStr}] [CORRELATE] Resolving ownership records from Active Directory & ServiceNow service catalogs...`;
-
-    if (selectedSource === 'aws') {
-      scanLog = `[${nowStr}] [AWS-SCAN] Syncing ACM certificates, ELB targets, API Gateways, IAM SSH keys & Secrets Manager ciphers...`;
-      correlationLog = `[${nowStr}] [AWS-MATCH] Correlating EC2 load balancers with active AWS ACM private keys...`;
-    } else if (selectedSource === 'azure') {
-      scanLog = `[${nowStr}] [AZURE-SYNC] Querying Key Vault secrets, ARM template parameters and Azure Graph API active users...`;
-      correlationLog = `[${nowStr}] [AZURE-MATCH] Mapping Azure Active Directory identities to Key Vault secrets...`;
-    } else if (selectedSource === 'gcp') {
-      scanLog = `[${nowStr}] [GCP-SYNC] Fetching GCP Certificate Manager descriptors and HTTPS Load Balancer targets...`;
-      correlationLog = `[${nowStr}] [GCP-MATCH] Cross-referencing GCP target pools with active SSL bindings...`;
-    } else if (selectedSource === 'k8s') {
-      scanLog = `[${nowStr}] [K8S-SCAN] Querying K8s TLS Secrets, Ingress controller routes (Nginx/Traefik) and Istio Service Mesh configs...`;
-      correlationLog = `[${nowStr}] [K8S-MATCH] Mapping service-to-service mutual TLS (mTLS) cipher restrictions...`;
-    } else if (selectedSource === 'f5') {
-      scanLog = `[${nowStr}] [F5-INGEST] Loading ClientSSL/ServerSSL profiles, virtual server VIP definitions and Big-IP certificates...`;
-      correlationLog = `[${nowStr}] [F5-MAP] Pinpointing legacy virtual IP (VIP) profiles enforcing RSA key exchanges...`;
-    } else if (selectedSource === 'paloalto') {
-      scanLog = `[${nowStr}] [PAN-CRAWL] Extracting GlobalProtect VPN gateway profiles, IPSec tunnels and active client certificates...`;
-      correlationLog = `[${nowStr}] [PAN-MATCH] Identifying legacy IKE phase 1/2 proposals using weak Diffie-Hellman groups...`;
-    } else if (selectedSource === 'cisco') {
-      scanLog = `[${nowStr}] [CISCO-CRAWL] Fetching AnyConnect VPN profiles, ASA cryptomaps and ISAKMP parameters...`;
-      correlationLog = `[${nowStr}] [CISCO-MATCH] Auditing Cisco client profile SSL cipher suites for Grover threat compliance...`;
-    } else if (selectedSource === 'workday') {
-      scanLog = `[${nowStr}] [WORKDAY-SYNC] Fetching organizational hierarchy and manager profiles...`;
-      correlationLog = `[${nowStr}] [IDENTITY-MAP] Linking cryptosystem owners to Workday cost-centers and Slack handles...`;
-    } else if (selectedSource === 'sharepoint') {
-      scanLog = `[${nowStr}] [SP-CRAWL] Parsing SharePoint document libraries for SSL/TLS configuration spreadsheets...`;
-      correlationLog = `[${nowStr}] [DOC-CORRELATE] Mapping SharePoint asset registers to discovered endpoints...`;
-    } else if (selectedSource === 'defender') {
-      scanLog = `[${nowStr}] [DEFENDER-SCAN] Extracting network connection logs and handshake telemetry from endpoints...`;
-      correlationLog = `[${nowStr}] [POLICY] Identifying TLS versions and cipher suites in active use by endpoints...`;
-    } else if (selectedSource === 'crowdstrike') {
-      scanLog = `[${nowStr}] [FALCON-INTEL] Querying Falcon network traffic metadata for legacy SSL handshakes...`;
-      correlationLog = `[${nowStr}] [ZERO-TRUST] Mapping encryption tunnels to domain controllers...`;
-    } else if (selectedSource === 'qualys' || selectedSource === 'tenable') {
-      const toolName = selectedSource === 'qualys' ? 'Qualys' : 'Tenable';
-      scanLog = `[${nowStr}] [${toolName.toUpperCase()}-INGEST] Fetching active host vulnerabilities and SSL/TLS scan results...`;
-      correlationLog = `[${nowStr}] [VULN-MATCH] Cross-referencing host CVEs with quantum-vulnerable configurations...`;
-    } else if (selectedSource === 'splunk') {
-      scanLog = `[${nowStr}] [SPLUNK-INGEST] Connecting to Splunk Search API as user 'secops_auditor'...`;
-      correlationLog = `[${nowStr}] [SPLUNK-QUERY] Executing search: 'index="ia" sourcetype="syslog:tls" | table dest_ip, ssl_cipher, ssl_version'...`;
-    } else if (selectedSource === 'servicenow') {
-      scanLog = `[${nowStr}] [SN-SYNC] Querying Configuration Items (CIs) from ServiceNow Service Catalog...`;
-      correlationLog = `[${nowStr}] [SN-MAPPING] Synchronizing business owners, application names, and support group tables...`;
-    }
-
-    const logs = [
-      `[${nowStr}] [CMDB-INIT] Initializing metadata discovery: ${targetConnector}...`,
-      `[${nowStr}] [AUTH] Authenticating session tokens with OAuth2 credential stores...`,
-      scanLog,
-      `[${nowStr}] [GDPR-CHECK] GDPR compliance filter activated: Raw payloads, logs and user inputs are discarded.`,
-      `[${nowStr}] [METADATA-FIRST] Extracting cryptographic parameters (TLS profiles, key rings, algorithms, owners)...`,
-      correlationLog,
-      `[${nowStr}] [PARSE] Discovered 4 cryptographic assets mapped to enterprise dependencies.`,
-      `[${nowStr}] [SYNC] Registering assets into postgres database...`,
-      `[${nowStr}] [SUCCESS] Metadata sync finished. 4 new assets imported into Crypto CMDB.`
-    ];
+    // Get realistic logs based on date 2026-06-11 and selectedSource
+    const logs = getMockLogsForSource(selectedSource, '2026-06-11');
+    const newAssets = getDiscoveryAssetsForSource(selectedSource);
 
     let currentLogIndex = 0;
     const interval = setInterval(() => {
@@ -354,6 +570,7 @@ export const Inventory: React.FC<InventoryProps> = ({
       } else {
         clearInterval(interval);
         setIsDiscovering(false);
+        setDiscoveredAssets(newAssets);
         
         // Save the run to our historical logs database registry
         setSyncLogsRegistry(prev => ({
@@ -366,13 +583,21 @@ export const Inventory: React.FC<InventoryProps> = ({
 
         // Set selectors to view the newly ingested logs
         setSelectedAuditDate('2026-06-11');
-        setSelectedAuditSource(selectedSource);
+        
+        const apiSources = ['aws', 'azure', 'gcp', 'k8s', 'f5', 'paloalto', 'cisco'];
+        if (apiSources.includes(selectedSource)) {
+          setLogCategory('api');
+          setSelectedAuditApiTopic(selectedSource);
+        } else {
+          setLogCategory('integration');
+          setSelectedAuditIntegrationSource(selectedSource);
+        }
 
         if (onAddAssets) {
-          onAddAssets(DISCOVERY_ASSETS);
+          onAddAssets(newAssets);
         }
       }
-    }, 450);
+    }, 250);
   };
 
   const handleExportCSV = () => {
@@ -564,15 +789,16 @@ export const Inventory: React.FC<InventoryProps> = ({
 
   // Selected historical sync log text resolver
   const activeHistoricalLogs = useMemo(() => {
-    if (selectedAuditSource === 'all') {
-      return [`[INFO] Select a specific log source to view its raw sync console logs.`];
+    const activeSource = logCategory === 'api' ? selectedAuditApiTopic : selectedAuditIntegrationSource;
+    if (activeSource === 'all') {
+      return [`[INFO] Select a specific ${logCategory === 'api' ? 'API Discovery Topic' : 'Integration Data Source'} to view its raw sync console logs.`];
     }
     const dateRegistry = syncLogsRegistry[selectedAuditDate];
-    if (dateRegistry && dateRegistry[selectedAuditSource]) {
-      return dateRegistry[selectedAuditSource];
+    if (dateRegistry && dateRegistry[activeSource]) {
+      return dateRegistry[activeSource];
     }
-    return [`[WARNING] No audit logs registered for source '${selectedAuditSource}' on date '${selectedAuditDate}'.`];
-  }, [syncLogsRegistry, selectedAuditDate, selectedAuditSource]);
+    return getMockLogsForSource(activeSource, selectedAuditDate);
+  }, [syncLogsRegistry, selectedAuditDate, logCategory, selectedAuditApiTopic, selectedAuditIntegrationSource]);
 
   return (
     <>
@@ -684,6 +910,49 @@ export const Inventory: React.FC<InventoryProps> = ({
               )}
             </div>
           </div>
+
+          {/* Recently Discovered Assets list */}
+          {!isDiscovering && liveDiscoveryLogs.length > 0 && discoveredAssets.length > 0 && (
+            <div style={{ marginTop: '1rem', animation: 'fadeIn 0.3s' }}>
+              <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                Discovered Cryptographic Assets ({discoveredAssets.length})
+              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
+                {discoveredAssets.map((asset) => {
+                  const enriched = enrichAssetCMDB(asset);
+                  return (
+                    <div key={asset.id} style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      background: 'rgba(255,255,255,0.02)', 
+                      border: '1px solid var(--border-normal)', 
+                      borderRadius: '4px', 
+                      padding: '0.4rem 0.6rem',
+                      fontSize: '0.8rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {enriched.isVulnerable ? (
+                          <ShieldAlert size={12} color="var(--status-vulnerable)" />
+                        ) : (
+                          <ShieldCheck size={12} color="var(--status-secure)" />
+                        )}
+                        <span style={{ color: '#ffffff', fontWeight: 500 }}>{enriched.name}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{enriched.algorithm}</span>
+                        <span className={`badge ${
+                          enriched.riskLevel === 'critical' || enriched.riskLevel === 'high' ? 'danger' : 'warning'
+                        }`} style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem' }}>
+                          {enriched.riskLevel}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* SVG Dependency Mapper */}
@@ -818,78 +1087,148 @@ export const Inventory: React.FC<InventoryProps> = ({
         <div style={{ borderBottom: '1px solid var(--border-normal)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ffffff', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Activity size={18} color="var(--accent-cyan)" />
-            <span>CMDB Sync Logs & Audit Ingested Records</span>
+            <span>CMDB Dependency Registry</span>
           </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
-            Select sync dates and integration sources to inspect the raw console logs and display the specific assets ingested.
+            Select sync dates, API topics (metadata), or imported integration data to inspect stored raw console logs and matching records.
           </p>
         </div>
 
         {/* Filters and Date/Source selectors */}
         <div style={{ 
           display: 'flex', 
+          flexDirection: 'column',
           gap: '1rem', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          marginBottom: '1rem'
+          marginBottom: '1rem',
+          background: 'rgba(255,255,255,0.01)',
+          padding: '1rem',
+          borderRadius: '8px',
+          border: '1px solid var(--border-normal)'
         }}>
-          {/* History selector elements */}
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', flex: 1, minWidth: '320px' }}>
-            {/* Date Picker Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Sync Date:</span>
-              <select 
-                value={selectedAuditDate} 
-                onChange={(e) => setSelectedAuditDate(e.target.value)}
-                className="chat-text-input" 
-                style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', width: '150px', background: 'rgba(0,0,0,0.3)', color: '#ffffff' }}
-              >
-                <option value="2026-06-11">2026-06-11 (Today)</option>
-                <option value="2026-06-10">2026-06-10</option>
-                <option value="2026-06-09">2026-06-09</option>
-              </select>
+          {/* Top Row: Date Selection & Categories Toggle */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* Date Selection */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: 600 }}>Sync Date:</span>
+                <select 
+                  value={selectedAuditDate} 
+                  onChange={(e) => setSelectedAuditDate(e.target.value)}
+                  className="chat-text-input" 
+                  style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem', width: '160px', background: 'rgba(0,0,0,0.3)', color: '#ffffff' }}
+                >
+                  <option value="2026-06-11">2026-06-11 (Today)</option>
+                  <option value="2026-06-10">2026-06-10</option>
+                  <option value="2026-06-09">2026-06-09</option>
+                </select>
+              </div>
+
+              {/* Log Category Selector Buttons (Tab-like) */}
+              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', borderRadius: '6px', padding: '2px', border: '1px solid var(--border-normal)' }}>
+                <button
+                  onClick={() => setLogCategory('api')}
+                  style={{
+                    padding: '0.4rem 0.85rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: logCategory === 'api' ? 'var(--accent-cyan)' : 'transparent',
+                    color: logCategory === 'api' ? '#000000' : 'var(--text-secondary)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  API Discovery Sources
+                </button>
+                <button
+                  onClick={() => setLogCategory('integration')}
+                  style={{
+                    padding: '0.4rem 0.85rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: logCategory === 'integration' ? 'var(--accent-purple)' : 'transparent',
+                    color: logCategory === 'integration' ? '#ffffff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Partner Integration Sources
+                </button>
+              </div>
             </div>
 
-            {/* Source Selector Dropdown */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Sync Source:</span>
-              <select 
-                value={selectedAuditSource} 
-                onChange={(e) => setSelectedAuditSource(e.target.value)}
-                className="chat-text-input" 
-                style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', width: '180px', background: 'rgba(0,0,0,0.3)', color: '#ffffff' }}
-              >
-                <option value="all">All Sources (Full CMDB)</option>
-                <option value="aws">AWS (ACM, ELB, APIGW)</option>
-                <option value="azure">Azure (Key Vault, Graph)</option>
-                <option value="gcp">GCP Load Balancers</option>
-                <option value="k8s">Kubernetes Ingress</option>
-                <option value="f5">F5 VIP profiles</option>
-                <option value="splunk">Splunk SIEM Logs</option>
-                <option value="servicenow">ServiceNow CMDB Catalog</option>
-              </select>
+            {/* Ingested Records Search Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.45rem 0.85rem', borderRadius: '6px', border: '1px solid var(--border-normal)', width: '280px' }}>
+              <Search size={15} color="var(--text-secondary)" />
+              <input 
+                type="text" 
+                placeholder="Search matching records..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ 
+                  background: 'transparent', 
+                  border: 'none', 
+                  color: 'white', 
+                  outline: 'none', 
+                  width: '100%',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '0.85rem'
+                }}
+              />
             </div>
           </div>
 
-          {/* Table Search bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.45rem 0.85rem', borderRadius: '6px', border: '1px solid var(--border-normal)', width: '260px' }}>
-            <Search size={15} color="var(--text-secondary)" />
-            <input 
-              type="text" 
-              placeholder="Search Ingested records..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ 
-                background: 'transparent', 
-                border: 'none', 
-                color: 'white', 
-                outline: 'none', 
-                width: '100%',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '0.85rem'
-              }}
-            />
+          {/* Bottom Row: Conditional Selectors for specific sources */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem' }}>
+            {logCategory === 'api' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>API Discovery Topic:</span>
+                <select 
+                  value={selectedAuditApiTopic} 
+                  onChange={(e) => setSelectedAuditApiTopic(e.target.value)}
+                  className="chat-text-input" 
+                  style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem', width: '320px', background: 'rgba(0,0,0,0.3)', color: '#ffffff' }}
+                >
+                  <option value="all">All API Topics (Full API Ingestion)</option>
+                  <option value="aws">AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
+                  <option value="azure">Azure: Graph API, Key Vault, Azure Resource Manager</option>
+                  <option value="gcp">GCP: Certificates, Load Balancers</option>
+                  <option value="k8s">Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh</option>
+                  <option value="f5">F5: SSL Profiles, VIPs, Certificates</option>
+                  <option value="paloalto">Palo Alto: VPNs, Certificates</option>
+                  <option value="cisco">Cisco: VPN Infrastructure</option>
+                </select>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '1rem' }}>
+                  Queries direct cloud/network metadata discovery logs.
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Integration Data Source:</span>
+                <select 
+                  value={selectedAuditIntegrationSource} 
+                  onChange={(e) => setSelectedAuditIntegrationSource(e.target.value)}
+                  className="chat-text-input" 
+                  style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem', width: '320px', background: 'rgba(0,0,0,0.3)', color: '#ffffff' }}
+                >
+                  <option value="all">All Integration Data (Full Partner Sync)</option>
+                  <option value="splunk">Splunk: Connect as Splunk User & query 'ia' index</option>
+                  <option value="defender">Microsoft Defender: Extract active endpoint host certs</option>
+                  <option value="crowdstrike">CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
+                  <option value="qualys">Qualys: Sync discovered host SSL configurations</option>
+                  <option value="tenable">Tenable: Ingest Nessus SSL scan profiles</option>
+                  <option value="workday">Workday: Sync directory names & owner identities</option>
+                  <option value="sharepoint">SharePoint: Parse asset inventory documents</option>
+                  <option value="servicenow">ServiceNow: Get configuration items & create tickets</option>
+                </select>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '1rem' }}>
+                  Queries imported security and catalog inventory records.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
