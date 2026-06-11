@@ -9,6 +9,7 @@ import { ComplianceReport } from './components/ComplianceReport';
 import { AIAdvisor } from './components/AIAdvisor';
 import { AuthScreen } from './components/AuthScreen';
 import { AdminPanel } from './components/AdminPanel';
+import { SIEM } from './components/SIEM';
 import { getDefaultInventory } from './utils/cryptoAuditor';
 import type { AuditResult } from './utils/cryptoAuditor';
 import { RefreshCw } from 'lucide-react';
@@ -163,6 +164,7 @@ function App() {
             onRemoveAsset={handleRemoveAsset}
             selectedAsset={selectedAsset}
             setSelectedAsset={setSelectedAsset}
+            onAddAssets={handleAddAssets}
           />
         );
       case 'migration':
@@ -171,6 +173,8 @@ function App() {
         return <ComplianceReport assets={assets} />;
       case 'ai':
         return <AIAdvisor />;
+      case 'siem':
+        return <SIEM />;
       case 'admin':
         return <AdminPanel showOnlyStatsAndList={true} />;
       case 'deploy':

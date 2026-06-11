@@ -487,7 +487,7 @@ export function getDefaultInventory(): AuditResult[] {
       isVulnerable: true,
       riskLevel: 'high',
       status: 'Quantum Vulnerable',
-      description: 'Production ingress TLS certificate utilizing RSA-2048.',
+      description: 'Production ingress TLS certificate utilizing RSA-2048. |CMDB:{"businessService":"Transactional Core Payment","application":"PayShield API","endpoint":"api.payments.enterprise.com","owner":"sridhargs@spinovation.com","lifecycle":"Active"}',
       recommendation: 'Replace with a hybrid TLS certificate (ML-KEM + Classical).',
       explainer: 'RSA relies on integer factorization, which Shor\'s algorithm solves in $O(n^3)$ polynomial time. This exposes historical sessions to retro-decryption (SNDL threat).',
       complianceViolations: ['CNSA 2.0', 'NIST SP 800-219', 'EO 14028']
@@ -501,7 +501,7 @@ export function getDefaultInventory(): AuditResult[] {
       isVulnerable: true,
       riskLevel: 'high',
       status: 'Quantum Vulnerable',
-      description: 'SSH deploy key used in GitHub actions pipeline.',
+      description: 'SSH deploy key used in GitHub actions pipeline. |CMDB:{"businessService":"DevOps Delivery Platform","application":"GitHub Deploy Runner","endpoint":"runner-04.ci.internal","owner":"devops-lead@spinovation.com","lifecycle":"Migrating"}',
       recommendation: 'Upgrade OpenSSH on target servers and transition key to hybrid lattice-based algorithm.',
       explainer: 'Ed25519 is classically secure but uses elliptic curves. Elliptic curve discrete logarithms are easily computed on a quantum computer running Shor\'s algorithm.',
       complianceViolations: ['CNSA 2.0']
@@ -515,7 +515,7 @@ export function getDefaultInventory(): AuditResult[] {
       isVulnerable: true,
       riskLevel: 'high',
       status: 'Quantum Vulnerable',
-      description: 'Signing key for database backup integrity checks.',
+      description: 'Signing key for database backup integrity checks. |CMDB:{"businessService":"Transactional Core Payment","application":"PayShield Database","endpoint":"db-primary.payments.internal","owner":"db-admin@spinovation.com","lifecycle":"Active"}',
       recommendation: 'Migrate integrity checks to post-quantum signatures (ML-DSA / Dilithium).',
       explainer: 'RSA-4096 signatures can be forged by a quantum computer that extracts the private signing key from the public key, enabling backdoors in historical backups.',
       complianceViolations: ['EO 14028']
@@ -529,7 +529,7 @@ export function getDefaultInventory(): AuditResult[] {
       isVulnerable: false,
       riskLevel: 'secure',
       status: 'Post-Quantum Secure',
-      description: 'Root access bastion key matching CNSA 2.0 standards.',
+      description: 'Root access bastion key matching CNSA 2.0 standards. |CMDB:{"businessService":"Corporate Identity Services","application":"Bastion Gateway","endpoint":"bastion.secure.enterprise.com","owner":"it-ops@spinovation.com","lifecycle":"Remediated"}',
       recommendation: 'Maintain. This key is fully post-quantum compliant.',
       explainer: 'Streamlined NTRU Prime protects this session from quantum cryptanalysis. Even if quantum computers emerge, the lattice-based mathematics remain secure.',
       complianceViolations: []
@@ -543,10 +543,94 @@ export function getDefaultInventory(): AuditResult[] {
       isVulnerable: true,
       riskLevel: 'critical',
       status: 'Quantum Vulnerable',
-      description: 'Obsolete client-certificate used by legacy microservices.',
+      description: 'Obsolete client-certificate used by legacy microservices. |CMDB:{"businessService":"External API Gateway","application":"Legacy Partner Client","endpoint":"legacy.partner.api.com","owner":"partnerships@spinovation.com","lifecycle":"Active"}',
       recommendation: 'Revoke and replace immediately. RSA-1024 is vulnerable classically and critically vulnerable quantum-wise.',
       explainer: 'RSA-1024 is at active risk of classical factorization and requires a fraction of the quantum capacity to break compared to RSA-2048.',
       complianceViolations: ['NIST SP 800-131A', 'CNSA 2.0', 'EO 14028']
     }
   ];
+}
+
+export interface CMDBMetadata {
+  businessService: string;
+  application: string;
+  endpoint: string;
+  owner: string;
+  lifecycle: 'Active' | 'Migrating' | 'Remediated';
+}
+
+export type EnrichedAuditResult = AuditResult & CMDBMetadata;
+
+export function enrichAssetCMDB(asset: AuditResult): EnrichedAuditResult {
+  let businessService = 'Enterprise Infrastructure';
+  let application = 'Core Operations';
+  let endpoint = 'internal-mesh.local';
+  let owner = 'ops-team@spinovation.com';
+  let lifecycle: 'Active' | 'Migrating' | 'Remediated' = 'Active';
+
+  if (asset.description && asset.description.includes('|CMDB:')) {
+    try {
+      const parts = asset.description.split('|CMDB:');
+      const cmdbData = JSON.parse(parts[1]);
+      if (cmdbData.businessService) businessService = cmdbData.businessService;
+      if (cmdbData.application) application = cmdbData.application;
+      if (cmdbData.endpoint) endpoint = cmdbData.endpoint;
+      if (cmdbData.owner) owner = cmdbData.owner;
+      if (cmdbData.lifecycle) lifecycle = cmdbData.lifecycle;
+    } catch (e) {
+      console.error('Failed to parse CMDB metadata', e);
+    }
+  } else {
+    // Generate fallback based on name patterns
+    if (asset.type === 'url') {
+      businessService = 'External API Gateway';
+      application = 'Partner Integration';
+      endpoint = asset.name;
+      owner = 'api-team@spinovation.com';
+    } else if (asset.name.includes('ingress') || asset.name.includes('wildcard')) {
+      businessService = 'Transactional Core Payment';
+      application = 'PayShield API';
+      endpoint = 'api.payments.enterprise.com';
+      owner = 'sridhargs@spinovation.com';
+    } else if (asset.name.includes('bastion')) {
+      businessService = 'Corporate Identity Services';
+      application = 'Bastion Gateway';
+      endpoint = 'bastion.secure.enterprise.com';
+      owner = 'it-ops@spinovation.com';
+      lifecycle = 'Remediated';
+    } else if (asset.name.includes('db') || asset.name.includes('database')) {
+      businessService = 'Transactional Core Payment';
+      application = 'PayShield Database';
+      endpoint = 'db-primary.payments.internal';
+      owner = 'db-admin@spinovation.com';
+    } else if (asset.name.includes('ci-cd') || asset.name.includes('deploy')) {
+      businessService = 'DevOps Delivery Platform';
+      application = 'GitLab CI runner';
+      endpoint = 'runner-04.ci.internal';
+      owner = 'devops-lead@spinovation.com';
+      lifecycle = 'Migrating';
+    }
+  }
+
+  // Extract clean description for display
+  const cleanDescription = asset.description ? asset.description.split('|CMDB:')[0].trim() : '';
+
+  return {
+    ...asset,
+    description: cleanDescription,
+    businessService,
+    application,
+    endpoint,
+    owner,
+    lifecycle
+  };
+}
+
+export function serializeAssetWithCMDB(asset: AuditResult, cmdb: CMDBMetadata): AuditResult {
+  const cleanDesc = asset.description ? asset.description.split('|CMDB:')[0].trim() : '';
+  const cmdbString = `|CMDB:${JSON.stringify(cmdb)}`;
+  return {
+    ...asset,
+    description: `${cleanDesc} ${cmdbString}`
+  };
 }

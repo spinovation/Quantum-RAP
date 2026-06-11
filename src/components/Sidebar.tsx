@@ -2,17 +2,18 @@ import React from 'react';
 import { 
   LayoutDashboard, 
   ScanLine, 
-  ShieldAlert, 
-  CalendarDays, 
+  Database, 
+  TrendingUp, 
   FileCheck, 
   Bot,
   Settings,
   LogOut,
   PlusCircle,
+  Activity,
   ShieldAlert as BrandIcon
 } from 'lucide-react';
 
-export type TabType = 'overview' | 'scanner' | 'inventory' | 'migration' | 'compliance' | 'ai' | 'admin' | 'deploy';
+export type TabType = 'overview' | 'scanner' | 'inventory' | 'migration' | 'compliance' | 'ai' | 'admin' | 'deploy' | 'siem';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -36,13 +37,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'scanner', name: 'Crypto Scanner', icon: ScanLine },
     { 
       id: 'inventory', 
-      name: 'Vulnerability Registry', 
-      icon: ShieldAlert,
+      name: 'Crypto CMDB', 
+      icon: Database,
       badge: vulnerabilityCount > 0 ? vulnerabilityCount : undefined
     },
-    { id: 'migration', name: 'Migration Planner', icon: CalendarDays },
+    { id: 'migration', name: 'Migration & Impact', icon: TrendingUp },
     { id: 'compliance', name: 'Compliance & Audit', icon: FileCheck },
-    { id: 'ai', name: 'AI Remediation Hub', icon: Bot }
+    { id: 'ai', name: 'AI Remediation Hub', icon: Bot },
+    { id: 'siem', name: 'SIEM Integration', icon: Activity }
   ];
 
   // Dynamically append Admin Panel if the logged-in user is platform administrator
