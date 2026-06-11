@@ -102,11 +102,52 @@ export const Inventory: React.FC<InventoryProps> = ({
   const [serviceFilter, setServiceFilter] = useState('all');
   const [lifecycleFilter, setLifecycleFilter] = useState('all');
 
-  // Discovery simulation states
+  // Discovery panel state
   const [isDiscovering, setIsDiscovering] = useState(false);
-  const [discoveryLogs, setDiscoveryLogs] = useState<string[]>([]);
-  const [selectedConnector, setSelectedConnector] = useState('aws');
-  const logTerminalRef = useRef<HTMLDivElement>(null);
+  const [liveDiscoveryLogs, setLiveDiscoveryLogs] = useState<string[]>([]);
+  const [selectedSource, setSelectedSource] = useState('aws');
+  const liveTerminalRef = useRef<HTMLDivElement>(null);
+
+  // History selectors state
+  const [selectedAuditDate, setSelectedAuditDate] = useState('2026-06-11');
+  const [selectedAuditSource, setSelectedAuditSource] = useState('all');
+
+  // Historical raw logs database (mapped by Date ➔ Source)
+  const [syncLogsRegistry, setSyncLogsRegistry] = useState<Record<string, Record<string, string[]>>>({
+    '2026-06-11': {
+      aws: [
+        `[14:02:15] [CMDB-INIT] Initializing metadata discovery: AWS ACM, ELB, API Gateway, IAM, Secrets Manager...`,
+        `[14:02:16] [AUTH] Authenticating session tokens with OAuth2 credential stores...`,
+        `[14:02:17] [AWS-SCAN] Syncing ACM certificates, ELB targets, API Gateways, IAM SSH keys & Secrets Manager ciphers...`,
+        `[14:02:17] [GDPR-CHECK] GDPR compliance filter activated: Raw payloads, logs and user inputs are discarded.`,
+        `[14:02:18] [METADATA-FIRST] Extracting cryptographic parameters (TLS profiles, key rings, algorithms, owners)...`,
+        `[14:02:19] [AWS-MATCH] Correlating EC2 load balancers with active AWS ACM private keys...`,
+        `[14:02:20] [PARSE] Discovered 4 cryptographic assets mapped to enterprise dependencies.`,
+        `[14:02:20] [SYNC] Registering assets into postgres database...`,
+        `[14:02:21] [SUCCESS] Metadata sync finished. 4 new assets imported into Crypto CMDB.`
+      ],
+      splunk: [
+        `[13:10:02] [CMDB-INIT] Initializing integration sync: Splunk SIEM API Logs Analyzer...`,
+        `[13:10:03] [AUTH] Authenticating as Splunk user 'secops_auditor'...`,
+        `[13:10:04] [SPLUNK-INGEST] Connecting to Splunk Search API endpoint...`,
+        `[13:10:04] [SPLUNK-QUERY] Executing search: 'index="ia" sourcetype="syslog:tls" | table dest_ip, ssl_cipher, ssl_version'...`,
+        `[13:10:05] [GDPR-CHECK] GDPR compliance filter activated: Raw user payloads discarded.`,
+        `[13:10:06] [METADATA-FIRST] Extracted 1 vulnerable cipher endpoint from syslog logs.`,
+        `[13:10:07] [SUCCESS] Ingested 1 asset from Splunk 'ia' index log audit.`
+      ]
+    },
+    '2026-06-10': {
+      servicenow: [
+        `[09:15:30] [CMDB-INIT] Initializing integration sync: ServiceNow CMDB Service Catalog...`,
+        `[09:15:31] [AUTH] Authenticating ServiceNow API token...`,
+        `[09:15:32] [SN-SYNC] Querying Configuration Items (CIs) from ServiceNow Service Catalog...`,
+        `[09:15:32] [GDPR-CHECK] GDPR compliance filter activated: No personal data ingested.`,
+        `[09:15:33] [METADATA-FIRST] Extracting operational owners and system descriptions...`,
+        `[09:15:34] [SN-MAPPING] Synchronizing business owners, application names, and support group tables...`,
+        `[09:15:35] [SUCCESS] ServiceNow asset configuration sync complete.`
+      ]
+    }
+  });
 
   // Parse and enrich all assets with CMDB metadata
   const enrichedAssets = useMemo(() => {
@@ -128,9 +169,10 @@ export const Inventory: React.FC<InventoryProps> = ({
     }
   }, [businessServices, graphService]);
 
-  // Filtered Assets
+  // Filtered Assets for Table
   const filteredAssets = useMemo(() => {
     return enrichedAssets.filter(asset => {
+      // 1. Search filter
       const matchesSearch = 
         asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.algorithm.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -139,8 +181,10 @@ export const Inventory: React.FC<InventoryProps> = ({
         asset.endpoint.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.owner.toLowerCase().includes(searchTerm.toLowerCase());
         
+      // 2. Type filter
       const matchesType = typeFilter === 'all' || asset.type === typeFilter;
       
+      // 3. Posture Status filter
       let matchesStatus = true;
       if (statusFilter === 'vulnerable') {
         matchesStatus = asset.isVulnerable;
@@ -148,19 +192,49 @@ export const Inventory: React.FC<InventoryProps> = ({
         matchesStatus = !asset.isVulnerable;
       }
 
+      // 4. Business Service filter
       const matchesService = serviceFilter === 'all' || asset.businessService === serviceFilter;
+      
+      // 5. Lifecycle filter
       const matchesLifecycle = lifecycleFilter === 'all' || asset.lifecycle === lifecycleFilter;
 
-      return matchesSearch && matchesType && matchesStatus && matchesService && matchesLifecycle;
+      // 6. Historical Source Filter (matches selected date and selected source)
+      let matchesAuditSource = true;
+      if (selectedAuditSource !== 'all') {
+        const sourceNormalized = selectedAuditSource.toLowerCase();
+        if (sourceNormalized === 'aws') {
+          matchesAuditSource = asset.id.includes('aws') || asset.name.includes('aws') || asset.id === 'inv-1';
+        } else if (sourceNormalized === 'azure') {
+          matchesAuditSource = asset.id.includes('azure') || asset.name.includes('azure') || asset.id === 'inv-4';
+        } else if (sourceNormalized === 'gcp') {
+          matchesAuditSource = asset.id.includes('gcp') || asset.name.includes('gcp');
+        } else if (sourceNormalized === 'k8s') {
+          matchesAuditSource = asset.id.includes('k8s') || asset.name.includes('k8s') || asset.id === 'inv-5';
+        } else if (sourceNormalized === 'f5') {
+          matchesAuditSource = asset.id.includes('f5') || asset.name.includes('f5');
+        } else if (sourceNormalized === 'paloalto') {
+          matchesAuditSource = asset.id.includes('paloalto') || asset.name.includes('paloalto');
+        } else if (sourceNormalized === 'cisco') {
+          matchesAuditSource = asset.id.includes('cisco') || asset.name.includes('cisco');
+        } else if (sourceNormalized === 'splunk') {
+          matchesAuditSource = asset.id.includes('splunk') || asset.name.includes('splunk') || asset.id === 'inv-3';
+        } else if (sourceNormalized === 'servicenow') {
+          matchesAuditSource = asset.id.includes('servicenow') || asset.name.includes('servicenow') || asset.id === 'inv-5';
+        } else {
+          matchesAuditSource = asset.name.toLowerCase().includes(sourceNormalized) || asset.id.includes(sourceNormalized);
+        }
+      }
+
+      return matchesSearch && matchesType && matchesStatus && matchesService && matchesLifecycle && matchesAuditSource;
     });
-  }, [enrichedAssets, searchTerm, typeFilter, statusFilter, serviceFilter, lifecycleFilter]);
+  }, [enrichedAssets, searchTerm, typeFilter, statusFilter, serviceFilter, lifecycleFilter, selectedAuditSource]);
 
   // Sync scroll on logs terminal
   useEffect(() => {
-    if (logTerminalRef.current) {
-      logTerminalRef.current.scrollTop = logTerminalRef.current.scrollHeight;
+    if (liveTerminalRef.current) {
+      liveTerminalRef.current.scrollTop = liveTerminalRef.current.scrollHeight;
     }
-  }, [discoveryLogs]);
+  }, [liveDiscoveryLogs]);
 
   // Open dialog when selectedAsset is set
   useEffect(() => {
@@ -188,7 +262,7 @@ export const Inventory: React.FC<InventoryProps> = ({
   const triggerDiscovery = () => {
     if (isDiscovering) return;
     setIsDiscovering(true);
-    setDiscoveryLogs([]);
+    setLiveDiscoveryLogs([]);
 
     const connectorNames: Record<string, string> = {
       aws: 'AWS ACM, ELB, API Gateway, IAM, Secrets Manager',
@@ -208,54 +282,60 @@ export const Inventory: React.FC<InventoryProps> = ({
       servicenow: 'ServiceNow CMDB Dependency Syncer'
     };
 
-    const targetConnector = connectorNames[selectedConnector] || 'API Cloud Connector';
+    const targetConnector = connectorNames[selectedSource] || 'API Cloud Connector';
     const nowStr = new Date().toLocaleTimeString();
 
     // Custom logs based on selected connector
     let scanLog = `[${nowStr}] [SCAN] Querying active resource configurations. Ingesting schema descriptors...`;
     let correlationLog = `[${nowStr}] [CORRELATE] Resolving ownership records from Active Directory & ServiceNow service catalogs...`;
 
-    if (selectedConnector === 'aws') {
+    if (selectedSource === 'aws') {
       scanLog = `[${nowStr}] [AWS-SCAN] Syncing ACM certificates, ELB targets, API Gateways, IAM SSH keys & Secrets Manager ciphers...`;
       correlationLog = `[${nowStr}] [AWS-MATCH] Correlating EC2 load balancers with active AWS ACM private keys...`;
-    } else if (selectedConnector === 'azure') {
+    } else if (selectedSource === 'azure') {
       scanLog = `[${nowStr}] [AZURE-SYNC] Querying Key Vault secrets, ARM template parameters and Azure Graph API active users...`;
       correlationLog = `[${nowStr}] [AZURE-MATCH] Mapping Azure Active Directory identities to Key Vault secrets...`;
-    } else if (selectedConnector === 'gcp') {
+    } else if (selectedSource === 'gcp') {
       scanLog = `[${nowStr}] [GCP-SYNC] Fetching GCP Certificate Manager descriptors and HTTPS Load Balancer targets...`;
       correlationLog = `[${nowStr}] [GCP-MATCH] Cross-referencing GCP target pools with active SSL bindings...`;
-    } else if (selectedConnector === 'k8s') {
+    } else if (selectedSource === 'k8s') {
       scanLog = `[${nowStr}] [K8S-SCAN] Querying K8s TLS Secrets, Ingress controller routes (Nginx/Traefik) and Istio Service Mesh configs...`;
       correlationLog = `[${nowStr}] [K8S-MATCH] Mapping service-to-service mutual TLS (mTLS) cipher restrictions...`;
-    } else if (selectedConnector === 'f5') {
+    } else if (selectedSource === 'f5') {
       scanLog = `[${nowStr}] [F5-INGEST] Loading ClientSSL/ServerSSL profiles, virtual server VIP definitions and Big-IP certificates...`;
       correlationLog = `[${nowStr}] [F5-MAP] Pinpointing legacy virtual IP (VIP) profiles enforcing RSA key exchanges...`;
-    } else if (selectedConnector === 'paloalto') {
+    } else if (selectedSource === 'paloalto') {
       scanLog = `[${nowStr}] [PAN-CRAWL] Extracting GlobalProtect VPN gateway profiles, IPSec tunnels and active client certificates...`;
       correlationLog = `[${nowStr}] [PAN-MATCH] Identifying legacy IKE phase 1/2 proposals using weak Diffie-Hellman groups...`;
-    } else if (selectedConnector === 'cisco') {
+    } else if (selectedSource === 'cisco') {
       scanLog = `[${nowStr}] [CISCO-CRAWL] Fetching AnyConnect VPN profiles, ASA cryptomaps and ISAKMP parameters...`;
       correlationLog = `[${nowStr}] [CISCO-MATCH] Auditing Cisco client profile SSL cipher suites for Grover threat compliance...`;
-    } else if (selectedConnector === 'workday') {
+    } else if (selectedSource === 'workday') {
       scanLog = `[${nowStr}] [WORKDAY-SYNC] Fetching organizational hierarchy and manager profiles...`;
       correlationLog = `[${nowStr}] [IDENTITY-MAP] Linking cryptosystem owners to Workday cost-centers and Slack handles...`;
-    } else if (selectedConnector === 'sharepoint') {
+    } else if (selectedSource === 'sharepoint') {
       scanLog = `[${nowStr}] [SP-CRAWL] Parsing SharePoint document libraries for SSL/TLS configuration spreadsheets...`;
       correlationLog = `[${nowStr}] [DOC-CORRELATE] Mapping SharePoint asset registers to discovered endpoints...`;
-    } else if (selectedConnector === 'defender') {
+    } else if (selectedSource === 'defender') {
       scanLog = `[${nowStr}] [DEFENDER-SCAN] Extracting network connection logs and handshake telemetry from endpoints...`;
       correlationLog = `[${nowStr}] [POLICY] Identifying TLS versions and cipher suites in active use by endpoints...`;
-    } else if (selectedConnector === 'crowdstrike') {
+    } else if (selectedSource === 'crowdstrike') {
       scanLog = `[${nowStr}] [FALCON-INTEL] Querying Falcon network traffic metadata for legacy SSL handshakes...`;
       correlationLog = `[${nowStr}] [ZERO-TRUST] Mapping encryption tunnels to domain controllers...`;
-    } else if (selectedConnector === 'qualys' || selectedConnector === 'tenable') {
-      const toolName = selectedConnector === 'qualys' ? 'Qualys' : 'Tenable';
+    } else if (selectedSource === 'qualys' || selectedSource === 'tenable') {
+      const toolName = selectedSource === 'qualys' ? 'Qualys' : 'Tenable';
       scanLog = `[${nowStr}] [${toolName.toUpperCase()}-INGEST] Fetching active host vulnerabilities and SSL/TLS scan results...`;
       correlationLog = `[${nowStr}] [VULN-MATCH] Cross-referencing host CVEs with quantum-vulnerable configurations...`;
+    } else if (selectedSource === 'splunk') {
+      scanLog = `[${nowStr}] [SPLUNK-INGEST] Connecting to Splunk Search API as user 'secops_auditor'...`;
+      correlationLog = `[${nowStr}] [SPLUNK-QUERY] Executing search: 'index="ia" sourcetype="syslog:tls" | table dest_ip, ssl_cipher, ssl_version'...`;
+    } else if (selectedSource === 'servicenow') {
+      scanLog = `[${nowStr}] [SN-SYNC] Querying Configuration Items (CIs) from ServiceNow Service Catalog...`;
+      correlationLog = `[${nowStr}] [SN-MAPPING] Synchronizing business owners, application names, and support group tables...`;
     }
 
     const logs = [
-      `[${nowStr}] [CMDB-INIT] Initializing metadata-first discovery connector: ${targetConnector}...`,
+      `[${nowStr}] [CMDB-INIT] Initializing metadata discovery: ${targetConnector}...`,
       `[${nowStr}] [AUTH] Authenticating session tokens with OAuth2 credential stores...`,
       scanLog,
       `[${nowStr}] [GDPR-CHECK] GDPR compliance filter activated: Raw payloads, logs and user inputs are discarded.`,
@@ -269,16 +349,30 @@ export const Inventory: React.FC<InventoryProps> = ({
     let currentLogIndex = 0;
     const interval = setInterval(() => {
       if (currentLogIndex < logs.length) {
-        setDiscoveryLogs(prev => [...prev, logs[currentLogIndex]]);
+        setLiveDiscoveryLogs(prev => [...prev, logs[currentLogIndex]]);
         currentLogIndex++;
       } else {
         clearInterval(interval);
         setIsDiscovering(false);
+        
+        // Save the run to our historical logs database registry
+        setSyncLogsRegistry(prev => ({
+          ...prev,
+          '2026-06-11': {
+            ...(prev['2026-06-11'] || {}),
+            [selectedSource]: logs
+          }
+        }));
+
+        // Set selectors to view the newly ingested logs
+        setSelectedAuditDate('2026-06-11');
+        setSelectedAuditSource(selectedSource);
+
         if (onAddAssets) {
           onAddAssets(DISCOVERY_ASSETS);
         }
       }
-    }, 600);
+    }, 450);
   };
 
   const handleExportCSV = () => {
@@ -326,13 +420,6 @@ export const Inventory: React.FC<InventoryProps> = ({
   const svgGraph = useMemo(() => {
     const serviceAssets = enrichedAssets.filter(a => a.businessService === graphService);
     if (serviceAssets.length === 0) return null;
-
-    // We want unique nodes for each level:
-    // Level 0: Business Service (1 node)
-    // Level 1: Application (unique apps)
-    // Level 2: Endpoint (unique endpoints)
-    // Level 3: Asset (unique asset names)
-    // Level 4: Algorithm (unique algorithms)
 
     const uniqueApps = Array.from(new Set(serviceAssets.map(a => a.application)));
     const uniqueEndpoints = Array.from(new Set(serviceAssets.map(a => a.endpoint)));
@@ -475,6 +562,18 @@ export const Inventory: React.FC<InventoryProps> = ({
     return { nodes, links, width, height };
   }, [enrichedAssets, graphService]);
 
+  // Selected historical sync log text resolver
+  const activeHistoricalLogs = useMemo(() => {
+    if (selectedAuditSource === 'all') {
+      return [`[INFO] Select a specific log source to view its raw sync console logs.`];
+    }
+    const dateRegistry = syncLogsRegistry[selectedAuditDate];
+    if (dateRegistry && dateRegistry[selectedAuditSource]) {
+      return dateRegistry[selectedAuditSource];
+    }
+    return [`[WARNING] No audit logs registered for source '${selectedAuditSource}' on date '${selectedAuditDate}'.`];
+  }, [syncLogsRegistry, selectedAuditDate, selectedAuditSource]);
+
   return (
     <>
       <div style={{ marginBottom: '1.5rem' }}>
@@ -489,7 +588,7 @@ export const Inventory: React.FC<InventoryProps> = ({
       {/* Row 1: Discovery Connectors and SVG Dependency Graph */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'minmax(300px, 1fr) minmax(450px, 2fr)', 
+        gridTemplateColumns: 'minmax(300px, 15fr) minmax(450px, 22fr)', 
         gap: '1.5rem', 
         marginBottom: '1.5rem',
         alignItems: 'stretch'
@@ -506,24 +605,24 @@ export const Inventory: React.FC<InventoryProps> = ({
           <div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: '#ffffff' }}>
               <Database size={18} color="var(--accent-cyan)" />
-              <span>Metadata-First Discovery Center</span>
+              <span>Metadata Discovery & Integrations</span>
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: '1.4' }}>
-              Connect agentless API resource descriptors to sync cryptographic inventory. Ingests metadata only (GDPR compliant).
+              Connect agentless APIs and partner systems to sync cryptographic inventory. Ingests metadata only (GDPR compliant).
             </p>
 
             {/* Select connector */}
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
-                Select Active Cloud / SIEM Source
+                Select Active Integration / API Source
               </label>
               <select 
-                value={selectedConnector} 
-                onChange={(e) => setSelectedConnector(e.target.value)}
+                value={selectedSource} 
+                onChange={(e) => setSelectedSource(e.target.value)}
                 className="chat-text-input" 
                 style={{ padding: '0.5rem', fontSize: '0.9rem', width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff' }}
               >
-                <optgroup label="Tier 1: Agentless API Discovery (Direct Cloud/Network APIs)" style={{ background: 'var(--bg-card)', color: 'var(--accent-cyan)' }}>
+                <optgroup label="Direct Cloud & Network API Connectors" style={{ background: 'var(--bg-card)', color: 'var(--accent-cyan)' }}>
                   <option value="aws" style={{ color: '#ffffff' }}>AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
                   <option value="azure" style={{ color: '#ffffff' }}>Azure: Graph API, Key Vault, Azure Resource Manager</option>
                   <option value="gcp" style={{ color: '#ffffff' }}>GCP: Certificates, Load Balancers</option>
@@ -532,7 +631,7 @@ export const Inventory: React.FC<InventoryProps> = ({
                   <option value="paloalto" style={{ color: '#ffffff' }}>Palo Alto: VPNs, Certificates</option>
                   <option value="cisco" style={{ color: '#ffffff' }}>Cisco: VPN Infrastructure</option>
                 </optgroup>
-                <optgroup label="Tier 2: Tool-Based Inventory Sync (Leverages Existing Inventories)" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
+                <optgroup label="Partner Inventory & Security Tool Integrations" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
                   <option value="splunk" style={{ color: '#ffffff' }}>Splunk: Connect as Splunk User & query 'ia' index</option>
                   <option value="defender" style={{ color: '#ffffff' }}>Microsoft Defender: Extract active endpoint host certs</option>
                   <option value="crowdstrike" style={{ color: '#ffffff' }}>CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
@@ -559,11 +658,11 @@ export const Inventory: React.FC<InventoryProps> = ({
           {/* Simulated Logs Terminal */}
           <div style={{ marginTop: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Discovery Logs</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Live Sync Output</span>
               {isDiscovering && <div className="pulse-dot"></div>}
             </div>
             <div 
-              ref={logTerminalRef}
+              ref={liveTerminalRef}
               style={{ 
                 height: '110px', 
                 background: '#090a0f', 
@@ -578,10 +677,10 @@ export const Inventory: React.FC<InventoryProps> = ({
                 lineHeight: '1.4'
               }}
             >
-              {discoveryLogs.length === 0 ? (
-                <span style={{ color: 'var(--text-muted)' }}>Idle. Click "Trigger Metadata Discovery" to run agentless cloud discovery.</span>
+              {liveDiscoveryLogs.length === 0 ? (
+                <span style={{ color: 'var(--text-muted)' }}>Idle. Click "Trigger Metadata Discovery" to execute live cloud scan.</span>
               ) : (
-                discoveryLogs.join('\n')
+                liveDiscoveryLogs.join('\n')
               )}
             </div>
           </div>
@@ -709,14 +808,24 @@ export const Inventory: React.FC<InventoryProps> = ({
         </div>
       </div>
 
-      {/* Row 2: Search, Filters, and Table */}
+      {/* Row 2: Historic logs and Ingested data results */}
       <div className="glass-panel" style={{ 
         padding: '1.25rem', 
         background: 'var(--bg-card)', 
         border: '1px solid var(--border-normal)',
         marginBottom: '1.5rem'
       }}>
-        {/* Header Search & Filtering */}
+        <div style={{ borderBottom: '1px solid var(--border-normal)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ffffff', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Activity size={18} color="var(--accent-cyan)" />
+            <span>CMDB Sync Logs & Audit Ingested Records</span>
+          </h3>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+            Select sync dates and integration sources to inspect the raw console logs and display the specific assets ingested.
+          </p>
+        </div>
+
+        {/* Filters and Date/Source selectors */}
         <div style={{ 
           display: 'flex', 
           gap: '1rem', 
@@ -725,12 +834,50 @@ export const Inventory: React.FC<InventoryProps> = ({
           flexWrap: 'wrap',
           marginBottom: '1rem'
         }}>
-          {/* Search bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.45rem 0.85rem', borderRadius: '6px', border: '1px solid var(--border-normal)', flex: 1, minWidth: '220px' }}>
-            <Search size={16} color="var(--text-secondary)" />
+          {/* History selector elements */}
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', flex: 1, minWidth: '320px' }}>
+            {/* Date Picker Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Sync Date:</span>
+              <select 
+                value={selectedAuditDate} 
+                onChange={(e) => setSelectedAuditDate(e.target.value)}
+                className="chat-text-input" 
+                style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', width: '150px', background: 'rgba(0,0,0,0.3)', color: '#ffffff' }}
+              >
+                <option value="2026-06-11">2026-06-11 (Today)</option>
+                <option value="2026-06-10">2026-06-10</option>
+                <option value="2026-06-09">2026-06-09</option>
+              </select>
+            </div>
+
+            {/* Source Selector Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Sync Source:</span>
+              <select 
+                value={selectedAuditSource} 
+                onChange={(e) => setSelectedAuditSource(e.target.value)}
+                className="chat-text-input" 
+                style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', width: '180px', background: 'rgba(0,0,0,0.3)', color: '#ffffff' }}
+              >
+                <option value="all">All Sources (Full CMDB)</option>
+                <option value="aws">AWS (ACM, ELB, APIGW)</option>
+                <option value="azure">Azure (Key Vault, Graph)</option>
+                <option value="gcp">GCP Load Balancers</option>
+                <option value="k8s">Kubernetes Ingress</option>
+                <option value="f5">F5 VIP profiles</option>
+                <option value="splunk">Splunk SIEM Logs</option>
+                <option value="servicenow">ServiceNow CMDB Catalog</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Table Search bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.45rem 0.85rem', borderRadius: '6px', border: '1px solid var(--border-normal)', width: '260px' }}>
+            <Search size={15} color="var(--text-secondary)" />
             <input 
               type="text" 
-              placeholder="Search CMDB (ciphers, services, owners...)" 
+              placeholder="Search Ingested records..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ 
@@ -740,21 +887,58 @@ export const Inventory: React.FC<InventoryProps> = ({
                 outline: 'none', 
                 width: '100%',
                 fontFamily: 'var(--font-sans)',
-                fontSize: '0.9rem'
+                fontSize: '0.85rem'
               }}
             />
           </div>
+        </div>
 
-          {/* Filters array */}
+        {/* Stored Raw Log Terminal Console */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+            Historical Sync Console logs (Audit Trail)
+          </span>
+          <div 
+            style={{ 
+              height: '110px', 
+              background: '#090a0f', 
+              border: '1px solid var(--border-normal)', 
+              borderRadius: '6px', 
+              padding: '0.5rem 0.8rem', 
+              fontFamily: 'monospace', 
+              fontSize: '0.75rem', 
+              color: '#00f3ff', 
+              overflowY: 'auto',
+              whiteSpace: 'pre-line',
+              lineHeight: '1.4'
+            }}
+          >
+            {activeHistoricalLogs.join('\n')}
+          </div>
+        </div>
+
+        {/* Filters Array for Table */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '0.75rem', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          marginBottom: '0.75rem',
+          padding: '0.5rem',
+          background: 'rgba(255,255,255,0.02)',
+          borderRadius: '4px',
+          border: '1px solid rgba(255,255,255,0.05)'
+        }}>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             {/* Service Filter */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Service:</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Service:</span>
               <select 
                 value={serviceFilter} 
                 onChange={(e) => setServiceFilter(e.target.value)}
                 className="chat-text-input" 
-                style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', width: '130px', background: 'rgba(0,0,0,0.3)' }}
+                style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', width: '120px', background: 'rgba(0,0,0,0.3)' }}
               >
                 <option value="all">All Services</option>
                 {businessServices.map(s => (
@@ -765,12 +949,12 @@ export const Inventory: React.FC<InventoryProps> = ({
 
             {/* Type Filter */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Type:</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Type:</span>
               <select 
                 value={typeFilter} 
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="chat-text-input" 
-                style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', width: '110px', background: 'rgba(0,0,0,0.3)' }}
+                style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', width: '100px', background: 'rgba(0,0,0,0.3)' }}
               >
                 <option value="all">All Types</option>
                 <option value="certificate">Certificates</option>
@@ -783,12 +967,12 @@ export const Inventory: React.FC<InventoryProps> = ({
 
             {/* Status Filter */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Status:</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Status:</span>
               <select 
                 value={statusFilter} 
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="chat-text-input" 
-                style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', width: '110px', background: 'rgba(0,0,0,0.3)' }}
+                style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', width: '100px', background: 'rgba(0,0,0,0.3)' }}
               >
                 <option value="all">All Postures</option>
                 <option value="vulnerable">Vulnerable</option>
