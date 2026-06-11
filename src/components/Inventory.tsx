@@ -990,23 +990,23 @@ export const Inventory: React.FC<InventoryProps> = ({
                     style={{ padding: '0.4rem 0.5rem', fontSize: '0.85rem', flexGrow: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff', minWidth: '0' }}
                   >
                     <optgroup label="Direct Cloud & Network API Connectors" style={{ background: 'var(--bg-card)', color: 'var(--accent-cyan)' }}>
-                      <option value="aws" style={{ color: '#ffffff' }}>AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
-                      <option value="azure" style={{ color: '#ffffff' }}>Azure: Graph API, Key Vault, Azure Resource Manager</option>
-                      <option value="gcp" style={{ color: '#ffffff' }}>GCP: Certificates, Load Balancers</option>
-                      <option value="k8s" style={{ color: '#ffffff' }}>Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh</option>
-                      <option value="f5" style={{ color: '#ffffff' }}>F5: SSL Profiles, VIPs, Certificates</option>
-                      <option value="paloalto" style={{ color: '#ffffff' }}>Palo Alto: VPNs, Certificates</option>
-                      <option value="cisco" style={{ color: '#ffffff' }}>Cisco: VPN Infrastructure</option>
+                      <option value="aws" style={{ color: '#ffffff' }}>{connectedSources['aws'] ? '✓ ' : ''}AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
+                      <option value="azure" style={{ color: '#ffffff' }}>{connectedSources['azure'] ? '✓ ' : ''}Azure: Graph API, Key Vault, Azure Resource Manager</option>
+                      <option value="gcp" style={{ color: '#ffffff' }}>{connectedSources['gcp'] ? '✓ ' : ''}GCP: Certificates, Load Balancers</option>
+                      <option value="k8s" style={{ color: '#ffffff' }}>{connectedSources['k8s'] ? '✓ ' : ''}Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh</option>
+                      <option value="f5" style={{ color: '#ffffff' }}>{connectedSources['f5'] ? '✓ ' : ''}F5: SSL Profiles, VIPs, Certificates</option>
+                      <option value="paloalto" style={{ color: '#ffffff' }}>{connectedSources['paloalto'] ? '✓ ' : ''}Palo Alto: VPNs, Certificates</option>
+                      <option value="cisco" style={{ color: '#ffffff' }}>{connectedSources['cisco'] ? '✓ ' : ''}Cisco: VPN Infrastructure</option>
                     </optgroup>
                     <optgroup label="Other Internal Sources" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
-                      <option value="splunk" style={{ color: '#ffffff' }}>Splunk: Connect as Splunk User & query 'ia' index</option>
-                      <option value="defender" style={{ color: '#ffffff' }}>Microsoft Defender: Extract active endpoint host certs</option>
-                      <option value="crowdstrike" style={{ color: '#ffffff' }}>CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
-                      <option value="qualys" style={{ color: '#ffffff' }}>Qualys: Sync discovered host SSL configurations</option>
-                      <option value="tenable" style={{ color: '#ffffff' }}>Tenable: Ingest Nessus SSL scan profiles</option>
-                      <option value="workday" style={{ color: '#ffffff' }}>Workday: Sync directory names & owner identities</option>
-                      <option value="sharepoint" style={{ color: '#ffffff' }}>SharePoint: Parse asset inventory documents</option>
-                      <option value="servicenow" style={{ color: '#ffffff' }}>ServiceNow: Get configuration items & create tickets</option>
+                      <option value="splunk" style={{ color: '#ffffff' }}>{connectedSources['splunk'] ? '✓ ' : ''}Splunk: Connect as Splunk User & query 'ia' index</option>
+                      <option value="defender" style={{ color: '#ffffff' }}>{connectedSources['defender'] ? '✓ ' : ''}Microsoft Defender: Extract active endpoint host certs</option>
+                      <option value="crowdstrike" style={{ color: '#ffffff' }}>{connectedSources['crowdstrike'] ? '✓ ' : ''}CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
+                      <option value="qualys" style={{ color: '#ffffff' }}>{connectedSources['qualys'] ? '✓ ' : ''}Qualys: Sync discovered host SSL configurations</option>
+                      <option value="tenable" style={{ color: '#ffffff' }}>{connectedSources['tenable'] ? '✓ ' : ''}Tenable: Ingest Nessus SSL scan profiles</option>
+                      <option value="workday" style={{ color: '#ffffff' }}>{connectedSources['workday'] ? '✓ ' : ''}Workday: Sync directory names & owner identities</option>
+                      <option value="sharepoint" style={{ color: '#ffffff' }}>{connectedSources['sharepoint'] ? '✓ ' : ''}SharePoint: Parse asset inventory documents</option>
+                      <option value="servicenow" style={{ color: '#ffffff' }}>{connectedSources['servicenow'] ? '✓ ' : ''}ServiceNow: Get configuration items & create tickets</option>
                     </optgroup>
                   </select>
                   <button
