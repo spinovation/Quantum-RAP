@@ -190,10 +190,13 @@ export const Inventory: React.FC<InventoryProps> = ({
     setDiscoveryLogs([]);
 
     const connectorNames: Record<string, string> = {
-      aws: 'AWS ACM & ELB API Connector',
-      azure: 'Azure Key Vault & ARM API Connector',
-      gcp: 'GCP Certificate Manager & Load Balancer API',
-      k8s: 'Kubernetes Ingress & Secrets Mesh Controller',
+      aws: 'AWS ACM, ELB, API Gateway, IAM, Secrets Manager',
+      azure: 'Azure Graph API, Key Vault, Azure Resource Manager',
+      gcp: 'GCP Certificates & Load Balancers API',
+      k8s: 'Kubernetes TLS Secrets, Ingress Controllers, Service Mesh',
+      f5: 'F5 SSL Profiles, VIPs, Certificates',
+      paloalto: 'Palo Alto VPNs & Certificates',
+      cisco: 'Cisco VPN Infrastructure',
       splunk: 'Splunk SIEM API Logs Analyzer',
       defender: 'Microsoft Defender Endpoint API Core',
       crowdstrike: 'CrowdStrike Falcon Threat Intelligence',
@@ -211,7 +214,28 @@ export const Inventory: React.FC<InventoryProps> = ({
     let scanLog = `[${nowStr}] [SCAN] Querying active resource configurations. Ingesting schema descriptors...`;
     let correlationLog = `[${nowStr}] [CORRELATE] Resolving ownership records from Active Directory & ServiceNow service catalogs...`;
 
-    if (selectedConnector === 'workday') {
+    if (selectedConnector === 'aws') {
+      scanLog = `[${nowStr}] [AWS-SCAN] Syncing ACM certificates, ELB targets, API Gateways, IAM SSH keys & Secrets Manager ciphers...`;
+      correlationLog = `[${nowStr}] [AWS-MATCH] Correlating EC2 load balancers with active AWS ACM private keys...`;
+    } else if (selectedConnector === 'azure') {
+      scanLog = `[${nowStr}] [AZURE-SYNC] Querying Key Vault secrets, ARM template parameters and Azure Graph API active users...`;
+      correlationLog = `[${nowStr}] [AZURE-MATCH] Mapping Azure Active Directory identities to Key Vault secrets...`;
+    } else if (selectedConnector === 'gcp') {
+      scanLog = `[${nowStr}] [GCP-SYNC] Fetching GCP Certificate Manager descriptors and HTTPS Load Balancer targets...`;
+      correlationLog = `[${nowStr}] [GCP-MATCH] Cross-referencing GCP target pools with active SSL bindings...`;
+    } else if (selectedConnector === 'k8s') {
+      scanLog = `[${nowStr}] [K8S-SCAN] Querying K8s TLS Secrets, Ingress controller routes (Nginx/Traefik) and Istio Service Mesh configs...`;
+      correlationLog = `[${nowStr}] [K8S-MATCH] Mapping service-to-service mutual TLS (mTLS) cipher restrictions...`;
+    } else if (selectedConnector === 'f5') {
+      scanLog = `[${nowStr}] [F5-INGEST] Loading ClientSSL/ServerSSL profiles, virtual server VIP definitions and Big-IP certificates...`;
+      correlationLog = `[${nowStr}] [F5-MAP] Pinpointing legacy virtual IP (VIP) profiles enforcing RSA key exchanges...`;
+    } else if (selectedConnector === 'paloalto') {
+      scanLog = `[${nowStr}] [PAN-CRAWL] Extracting GlobalProtect VPN gateway profiles, IPSec tunnels and active client certificates...`;
+      correlationLog = `[${nowStr}] [PAN-MATCH] Identifying legacy IKE phase 1/2 proposals using weak Diffie-Hellman groups...`;
+    } else if (selectedConnector === 'cisco') {
+      scanLog = `[${nowStr}] [CISCO-CRAWL] Fetching AnyConnect VPN profiles, ASA cryptomaps and ISAKMP parameters...`;
+      correlationLog = `[${nowStr}] [CISCO-MATCH] Auditing Cisco client profile SSL cipher suites for Grover threat compliance...`;
+    } else if (selectedConnector === 'workday') {
       scanLog = `[${nowStr}] [WORKDAY-SYNC] Fetching organizational hierarchy and manager profiles...`;
       correlationLog = `[${nowStr}] [IDENTITY-MAP] Linking cryptosystem owners to Workday cost-centers and Slack handles...`;
     } else if (selectedConnector === 'sharepoint') {
@@ -457,10 +481,13 @@ export const Inventory: React.FC<InventoryProps> = ({
                 className="chat-text-input" 
                 style={{ padding: '0.5rem', fontSize: '0.9rem', width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff' }}
               >
-                <option value="aws">AWS ACM & ELB APIs (Tier 1)</option>
-                <option value="azure">Azure Key Vault & Resource APIs (Tier 1)</option>
-                <option value="gcp">GCP Certificate Manager & Load Balancer (Tier 1)</option>
-                <option value="k8s">Kubernetes TLS Secrets & Service Mesh (Tier 1)</option>
+                <option value="aws">AWS: ACM, ELB, API Gateway, IAM, Secrets Manager (Tier 1)</option>
+                <option value="azure">Azure: Graph API, Key Vault, Azure Resource Manager (Tier 1)</option>
+                <option value="gcp">GCP: Certificates, Load Balancers (Tier 1)</option>
+                <option value="k8s">Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh (Tier 1)</option>
+                <option value="f5">F5: SSL Profiles, VIPs, Certificates (Tier 1)</option>
+                <option value="paloalto">Palo Alto: VPNs, Certificates (Tier 1)</option>
+                <option value="cisco">Cisco: VPN Infrastructure (Tier 1)</option>
                 <option value="splunk">Splunk SIEM API Logs (Tier 2)</option>
                 <option value="defender">Microsoft Defender for Endpoint (Tier 2)</option>
                 <option value="crowdstrike">CrowdStrike Falcon Insight (Tier 2)</option>
