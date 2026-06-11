@@ -496,6 +496,22 @@ export const Inventory: React.FC<InventoryProps> = ({
     setSelectedConfigSource(null);
   };
 
+  const handleDisconnectSource = () => {
+    if (!selectedConfigSource) return;
+    setConnectedSources(prev => {
+      const updated = { ...prev };
+      delete updated[selectedConfigSource];
+      return updated;
+    });
+    setConfigClientId('');
+    setConfigClientSecret('');
+    setConfigPrivateKey('');
+    setUploadedFileName('');
+    setGeneratedToken('');
+    setConnectionStatus('idle');
+    setSelectedConfigSource(null);
+  };
+
   // History selectors state
   const [selectedAuditDate, setSelectedAuditDate] = useState('2026-06-11');
   const [logCategory, setLogCategory] = useState<'api' | 'integration'>('api');
@@ -2016,6 +2032,16 @@ export const Inventory: React.FC<InventoryProps> = ({
             </div>
             
             <div className="dialog-actions" style={{ borderTop: '1px solid var(--border-normal)', padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              {connectedSources[selectedConfigSource] && (
+                <button 
+                  type="button"
+                  className="btn-secondary" 
+                  onClick={handleDisconnectSource}
+                  style={{ marginRight: 'auto', color: 'var(--status-vulnerable)', borderColor: 'rgba(239, 68, 68, 0.35)', padding: '0.5rem 1.25rem' }}
+                >
+                  Disconnect Source
+                </button>
+              )}
               <button 
                 className="btn-secondary" 
                 onClick={() => setSelectedConfigSource(null)}
