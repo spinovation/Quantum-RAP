@@ -41,64 +41,53 @@ The scan terminal allows security administrators to ingest, inspect, and audit c
 
 ---
 
-## 2. Vulnerability Registry (Asset Inventory)
+## 2. Crypto Asset CMDB
 
-The registry acts as the single source of truth for all audited public keys, certificates, server configurations, and domains.
+The **Crypto CMDB** serves as your enterprise system of record for cryptographic assets, identifying ownership, system dependencies, risk profiles, and lifecycle states.
 
-### A. Registry Architecture & Data Flow
-*   **Data Storage:** All cryptographic asset metadata is stored inside a private, physically isolated PostgreSQL database (`assets` table) unique to your organization's tenant stack.
-*   **Search Mechanics:** When you type in the search bar, the UI performs a real-time, client-side search across your inventory. Search queries match against the asset's **Name**, **Algorithm Suite**, and **Quantum Posture Status**.
-*   **Bootstrapping:** If your inventory is empty upon initialization, the registry automatically bootstraps a default mock inventory of common enterprise assets so you have actionable examples to explore right away.
+### A. CMDB Architecture & Dependency Mapping
+*   **Data Model Structure**: Mapped as `Business Service ➔ Application ➔ Endpoint ➔ Cryptographic Asset ➔ Algorithm`.
+*   **Multiple-Dependency Relations**: Multiple certificates, signing keys, and configurations can map to a single Business Service or Endpoint (e.g. `Transactional Core Payment` utilizes both the wildcard ingress certificate `production-ingress-wildcard` and the backup signing key `database-backup-sign-key`). This models realistic hierarchical systems where multiple credentials protect the same endpoints.
+*   **Identity Alignment**: Assets are linked to cost-center owners (e.g., `payment-infra@spinovation.com` or `it-ops@spinovation.com`) to coordinate rotation schedules.
+*   **Lifecycle Tracking**: Tracks transition states for each asset: `Active` (unmitigated), `Migrating` (hybrid tests running), or `Remediated` (fully post-quantum compliant).
 
-### B. Outbound Scan Consent & Safety Guarantee
-QuarkShield is designed with strict boundaries to protect internal corporate environments:
-*   **No Background Scanning:** There are **zero automated backend scripts, crawlers, or silent background scanner daemons** running on our platform. The database only updates when you explicitly trigger a scan or push certificate data.
-*   **Outbound Activity Disclosures:**
-    *   **TLS Endpoint Scanner:** Establishes a direct outbound TCP/TLS socket connection from the QuarkShield server to your specified host on port 443. It performs a standard TLS client handshake to negotiate cipher ciphers and check cert expiration. No HTTP headers or request bodies are sent, and no application payload data is read.
-    *   **HashiCorp Vault PKI Sync:** Makes a secure outbound HTTP GET call to your Vault REST endpoint carrying your secret token. It fetches the certificate serial list and parses certificate PEM values. The Vault token is processed strictly in-memory during sync and is **never** saved to our database or logged.
-    *   **Microsoft ADCS Sync:** Uses an **inbound-only push architecture**. QuarkShield does *not* contact your Active Directory or CA server. Instead, you run the provided PowerShell script locally to read CA metadata, which then posts an authenticated JSON payload to our server.
-*   **Manual Consent Checks:** To prevent accidental network triggers, outbound requests (TLS Scans and Vault Syncs) are gated behind an **Explicit Consent Checkbox** (e.g., *'I authorize QuarkShield to make this outbound TLS handshake request'*). Trigger buttons remain disabled until checked.
-
-### C. Usage & Expected Results
-*   **How to Use:**
-    1. Navigate to the **Overview** page for a high-level summary of your readiness ratio, algorithm distribution, and key-strength breakdowns.
-    2. Go to the **Asset Inventory** tab in the sidebar.
-    3. Use the search bar to filter assets by name, host, or algorithm (e.g., "RSA").
-    4. Click the filter badges to narrow down by risk level (**Critical**, **High**, **Medium**, **Secure**).
-    5. Click the **View Analysis** link on any asset row.
-*   **Expected Results:**
-    *   An interactive modal drawer opens containing a detailed mathematical explanation of why the asset is vulnerable:
-        *   **Shor's Algorithm:** Describes how a quantum computer factorizes integers (RSA) or solves discrete logarithms (ECDSA) in polynomial time ($O(n^3)$).
-        *   **Grover's Algorithm:** Explains the square-root speedup ($O(\sqrt{N})$) that reduces symmetric encryption and hash strengths (requiring upgrades to SHA-3 or larger parameters).
-    *   Specific remediation steps customized for that asset's type.
+### B. Agentless Metadata Discovery (Tiers 1 & 2)
+*   **Tier 1 Discovery (API-Based)**: Connects directly to cloud infrastructure providers and services (AWS ACM/ELB/APIGW/IAM/SecretsManager, Azure Graph/KeyVault/ARM, GCP Certificates/LBs, Kubernetes TLS/Ingress/Mesh, F5 SSL/VIPs, Palo Alto VPNs, Cisco VPNs).
+*   **Tier 2 Discovery (Existing Tool Integrations)**: Syncs with security tools (Splunk, Microsoft Defender, CrowdStrike, Qualys, Tenable, Workday, SharePoint, and ServiceNow).
+*   **Live Status**: All Tier 1 and 2 discovery components are **fully live**. Refreshing your browser allows you to select any connector on the discovery board and click **Trigger Metadata Discovery** to run real-time audits.
+*   **GDPR Compliance**: To prevent data privacy exposures, the CMDB implements a **Metadata-First** ingestion pattern. Only structural cryptographic details (algorithms, sizes, names) are collected—raw logs, user activities, and payloads are discarded.
 
 ---
 
-## 3. Mosca's Migration Planner
+## 3. Migration & Impact Planner
 
-The planner maps your organization's security timeline based on **Mosca’s Theorem** to determine your risk horizon.
+The **Migration & Impact** module combines Mosca's Theorem with a downstream simulator to predict migration fallout.
 
-### A. Mosca's Horizon Slider
-*   **How to Use:**
-    1. Navigate to the **Migration Planner** tab in the sidebar.
-    2. Adjust the three parameters:
-        *   **Data Shelf-Life ($S$):** How many years your ingested/archived data must remain secure (e.g., 10 years for compliance).
-        *   **Transition Time ($Y$):** How many years it will take your enterprise to completely upgrade to post-quantum standards (e.g., 5 years).
-        *   **Quantum Horizon ($Z$):** How many years before a Cryptanalytically Relevant Quantum Computer (CRQC) is built (standard estimates range from 8 to 15 years).
-*   **Expected Results:**
-    *   **If $S + Y > Z$:** The system displays a **Quantum Risk Threat** warning. This indicates your data will be exposed to "harvest-now, decrypt-later" attacks before your systems are upgraded.
-    *   **If $S + Y \le Z$:** The system displays **Systems Secure**, indicating your migration plan is safe.
+### A. "What Breaks?" Impact Simulator
+*   **How to Use**:
+    1. Select a migration profile (e.g. migrating your core TLS ingress from RSA-2048 to ML-KEM-768).
+    2. Click **Run Impact Analysis**.
+*   **Expected Results**:
+    *   **Downstream Service Impact**: Displays the specific applications and owner contacts affected.
+    *   **Fallout Warnings**: Flags client incompatibility percentages (e.g. identifying that legacy mobile client libraries will fail TLS handshakes if ML-KEM is enforced).
+    *   **Action Playbooks**: Lists step-by-step mitigation instructions (e.g. implementing hybrid dual-cert setups).
+    *   **Ticketing Integrations**: Generates JIRA Epic or ServiceNow Incident payloads carrying priority, ownership, and CMDB CI mapping keys.
 
-### B. Transition Roadmap
-*   **How to Use:**
-    1. Review the dynamic milestone roadmap below the slider.
-    2. Check off migration milestones as they are completed:
-        *   *Phase 1:* Cryptographic Asset Discovery (Scans complete)
-        *   *Phase 2:* OPA Policy Alignment (CNSA 2.0 Audits)
-        *   *Phase 3:* Hybrid Protocol Piloting (Nginx & SSH tests)
-        *   *Phase 4:* Complete Post-Quantum Deployment (ML-KEM enforcement)
-*   **Expected Results:**
-    *   Saves checkbox states in your portal session.
+### B. Mosca's Horizon Calculator
+*   **How to Use**:
+    1. Navigate to the **Mosca Assessment** sub-tab.
+    2. Adjust the sliders for Data Shelf-Life ($S$), Migration Time ($Y$), and Quantum Collapse Time ($Z$).
+*   **Expected Results**:
+    *   **If $S + Y > Z$**: Flags a threatened status indicating the systems are susceptible to retro-decryption (Harvest Now, Decrypt Later).
+    *   **If $S + Y \le Z$**: Confirms the transition buffer is secure.
+
+### C. Transition Roadmap
+*   *Phase 1:* Cryptographic Asset Discovery (Scans complete)
+*   *Phase 2:* OPA Policy Alignment (CNSA 2.0 Audits)
+*   *Phase 3:* Hybrid Protocol Piloting (Nginx & SSH tests)
+*   *Phase 4:* Complete Post-Quantum Deployment (ML-KEM enforcement)
+*   **Expected Results**:
+    *   Checkbox states are preserved in your session and dynamically update the readiness gauges.
     *   Dynamically recalculates remaining roadmap tasks and updates your organizational migration progress gauge.
 
 ---
