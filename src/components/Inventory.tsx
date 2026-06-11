@@ -15,6 +15,7 @@ import {
   Activity,
   FileSpreadsheet,
   Download,
+  Upload,
   Settings,
   RefreshCw
 } from 'lucide-react';
@@ -1822,25 +1823,45 @@ export const Inventory: React.FC<InventoryProps> = ({
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
                   Authentication Mode
                 </label>
-                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.2rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', cursor: 'pointer' }}>
-                    <input 
-                      type="radio" 
-                      name="authMode" 
-                      checked={authMode === 'secret'} 
-                      onChange={() => setAuthMode('secret')} 
-                    />
-                    <span>Service Account (Client ID & Secret)</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', cursor: 'pointer' }}>
-                    <input 
-                      type="radio" 
-                      name="authMode" 
-                      checked={authMode === 'key'} 
-                      onChange={() => setAuthMode('key')} 
-                    />
-                    <span>Private Key File (PEM)</span>
-                  </label>
+                <div style={{ display: 'flex', background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border-normal)', borderRadius: '6px', padding: '2px', marginTop: '0.2rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('secret')}
+                    style={{
+                      flex: 1,
+                      background: authMode === 'secret' ? 'rgba(0, 242, 254, 0.12)' : 'none',
+                      border: 'none',
+                      borderBottom: authMode === 'secret' ? '2px solid var(--accent-cyan)' : 'none',
+                      color: authMode === 'secret' ? '#ffffff' : 'var(--text-muted)',
+                      padding: '0.5rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      borderRadius: '4px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Service Account (Client ID & Secret)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('key')}
+                    style={{
+                      flex: 1,
+                      background: authMode === 'key' ? 'rgba(0, 242, 254, 0.12)' : 'none',
+                      border: 'none',
+                      borderBottom: authMode === 'key' ? '2px solid var(--accent-cyan)' : 'none',
+                      color: authMode === 'key' ? '#ffffff' : 'var(--text-muted)',
+                      padding: '0.5rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      borderRadius: '4px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Private Key File (PEM)
+                  </button>
                 </div>
               </div>
 
@@ -1882,18 +1903,20 @@ export const Inventory: React.FC<InventoryProps> = ({
                   
                   {/* File Upload Box */}
                   <div style={{ 
-                    border: '1px dashed var(--border-normal)', 
-                    borderRadius: '6px', 
-                    padding: '0.75rem', 
-                    background: 'rgba(0,0,0,0.15)',
+                    border: '2px dashed var(--border-normal)', 
+                    borderRadius: '8px', 
+                    padding: '1.25rem 0.75rem', 
+                    background: 'rgba(0, 242, 254, 0.03)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '0.5rem',
+                    gap: '0.6rem',
                     marginBottom: '0.75rem',
                     cursor: 'pointer',
-                    position: 'relative'
+                    position: 'relative',
+                    transition: 'all 0.2s ease',
+                    boxShadow: 'inset 0 0 10px rgba(0,0,0,0.2)'
                   }}>
                     <input 
                       type="file" 
@@ -1906,16 +1929,36 @@ export const Inventory: React.FC<InventoryProps> = ({
                         width: '100%',
                         height: '100%',
                         opacity: 0,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        zIndex: 10
                       }}
                     />
-                    <Download size={20} color="var(--accent-cyan)" />
-                    <span style={{ fontSize: '0.8rem', color: '#ffffff', textAlign: 'center' }}>
-                      {uploadedFileName ? `✓ Loaded: ${uploadedFileName}` : 'Click to select or drag Private Key file (.pem, .key)'}
+                    <Upload size={24} color="var(--accent-cyan)" />
+                    <span style={{ fontSize: '0.85rem', color: '#ffffff', fontWeight: 600, textAlign: 'center' }}>
+                      {uploadedFileName ? `✓ Loaded: ${uploadedFileName}` : 'Select or drag Private Key file (.pem, .key)'}
                     </span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                       Supports standard ASCII/Base64 PEM keys
                     </span>
+                    <button 
+                      type="button" 
+                      className="btn-secondary"
+                      style={{ 
+                        fontSize: '0.75rem', 
+                        padding: '0.3rem 0.75rem', 
+                        marginTop: '0.2rem',
+                        pointerEvents: 'none' // Click passes through to input
+                      }}
+                    >
+                      Browse Files
+                    </button>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.75rem 0' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border-normal)' }}></div>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>OR PASTE PRIVATE KEY CONTENT</span>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border-normal)' }}></div>
                   </div>
 
                   <textarea 
