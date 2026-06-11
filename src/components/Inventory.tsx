@@ -13,7 +13,8 @@ import {
   Globe,
   User,
   Activity,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Download
 } from 'lucide-react';
 import { 
   enrichAssetCMDB
@@ -641,6 +642,23 @@ export const Inventory: React.FC<InventoryProps> = ({
     document.body.removeChild(link);
   };
 
+  const handleExportAuditTrail = () => {
+    const activeSource = logCategory === 'api' ? selectedAuditApiTopic : selectedAuditIntegrationSource;
+    const dateStr = selectedAuditDate;
+    const fileName = `quarkshield_${activeSource}_audit_trail_${dateStr}.log`;
+    const content = activeHistoricalLogs.join('\n');
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Compute SVG nodes and links for the SVG dependency mapper
   const svgGraph = useMemo(() => {
     const serviceAssets = enrichedAssets.filter(a => a.businessService === graphService);
@@ -791,7 +809,7 @@ export const Inventory: React.FC<InventoryProps> = ({
   const activeHistoricalLogs = useMemo(() => {
     const activeSource = logCategory === 'api' ? selectedAuditApiTopic : selectedAuditIntegrationSource;
     if (activeSource === 'all') {
-      return [`[INFO] Select a specific ${logCategory === 'api' ? 'API Discovery Topic' : 'Integration Data Source'} to view its raw sync console logs.`];
+      return [`[INFO] Select a specific ${logCategory === 'api' ? 'API Discovery Topic' : 'Other Internal Source'} to view its raw sync console logs.`];
     }
     const dateRegistry = syncLogsRegistry[selectedAuditDate];
     if (dateRegistry && dateRegistry[activeSource]) {
@@ -834,7 +852,7 @@ export const Inventory: React.FC<InventoryProps> = ({
               <span>Metadata Discovery & Integrations</span>
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: '1.4' }}>
-              Connect agentless APIs and partner systems to sync cryptographic inventory. Ingests metadata only (GDPR compliant).
+              Connect agentless APIs and other internal systems to sync cryptographic inventory. Ingests metadata only (GDPR compliant).
             </p>
 
             {/* Select connector */}
@@ -857,7 +875,7 @@ export const Inventory: React.FC<InventoryProps> = ({
                   <option value="paloalto" style={{ color: '#ffffff' }}>Palo Alto: VPNs, Certificates</option>
                   <option value="cisco" style={{ color: '#ffffff' }}>Cisco: VPN Infrastructure</option>
                 </optgroup>
-                <optgroup label="Partner Inventory & Security Tool Integrations" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
+                <optgroup label="Other Internal Sources" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
                   <option value="splunk" style={{ color: '#ffffff' }}>Splunk: Connect as Splunk User & query 'ia' index</option>
                   <option value="defender" style={{ color: '#ffffff' }}>Microsoft Defender: Extract active endpoint host certs</option>
                   <option value="crowdstrike" style={{ color: '#ffffff' }}>CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
@@ -1155,7 +1173,7 @@ export const Inventory: React.FC<InventoryProps> = ({
                     transition: 'all 0.2s'
                   }}
                 >
-                  Partner Integration Sources
+                  Other Internal Sources
                 </button>
               </div>
             </div>
@@ -1207,14 +1225,14 @@ export const Inventory: React.FC<InventoryProps> = ({
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Integration Data Source:</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Other Internal Source:</span>
                 <select 
                   value={selectedAuditIntegrationSource} 
                   onChange={(e) => setSelectedAuditIntegrationSource(e.target.value)}
                   className="chat-text-input" 
                   style={{ padding: '0.4rem 0.6rem', fontSize: '0.85rem', width: '320px', background: 'rgba(0,0,0,0.3)', color: '#ffffff' }}
                 >
-                  <option value="all">All Integration Data (Full Partner Sync)</option>
+                  <option value="all">All Internal Sources (Full Ingestion)</option>
                   <option value="splunk">Splunk: Connect as Splunk User & query 'ia' index</option>
                   <option value="defender">Microsoft Defender: Extract active endpoint host certs</option>
                   <option value="crowdstrike">CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
@@ -1225,7 +1243,7 @@ export const Inventory: React.FC<InventoryProps> = ({
                   <option value="servicenow">ServiceNow: Get configuration items & create tickets</option>
                 </select>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '1rem' }}>
-                  Queries imported security and catalog inventory records.
+                  Queries other internal security and catalog inventory records.
                 </span>
               </div>
             )}
@@ -1234,9 +1252,28 @@ export const Inventory: React.FC<InventoryProps> = ({
 
         {/* Stored Raw Log Terminal Console */}
         <div style={{ marginBottom: '1.25rem' }}>
-          <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.3rem' }}>
-            Historical Sync Console logs (Audit Trail)
-          </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+              Sync Console logs (Audit Trail)
+            </span>
+            <button 
+              onClick={handleExportAuditTrail}
+              className="btn-secondary"
+              style={{ 
+                padding: '0.15rem 0.5rem', 
+                fontSize: '0.7rem', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '0.25rem',
+                borderColor: 'rgba(0, 243, 255, 0.25)',
+                color: 'var(--accent-cyan)'
+              }}
+              title="Export raw sync audit trail to file"
+            >
+              <Download size={11} />
+              <span>Export Audit Trail</span>
+            </button>
+          </div>
           <div 
             style={{ 
               height: '110px', 
