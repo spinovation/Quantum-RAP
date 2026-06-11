@@ -12,7 +12,8 @@ import {
   Layers,
   Globe,
   User,
-  Activity
+  Activity,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   enrichAssetCMDB
@@ -280,6 +281,47 @@ export const Inventory: React.FC<InventoryProps> = ({
     }, 600);
   };
 
+  const handleExportCSV = () => {
+    const headers = [
+      'Business Service',
+      'Application',
+      'Endpoint',
+      'Asset Name',
+      'Type',
+      'Algorithm',
+      'Key Size',
+      'Risk Level',
+      'Owner',
+      'Lifecycle State',
+      'Posture Status'
+    ];
+    
+    const rows = filteredAssets.map(asset => [
+      `"${asset.businessService.replace(/"/g, '""')}"`,
+      `"${asset.application.replace(/"/g, '""')}"`,
+      `"${asset.endpoint.replace(/"/g, '""')}"`,
+      `"${asset.name.replace(/"/g, '""')}"`,
+      `"${asset.type.replace(/"/g, '""')}"`,
+      `"${asset.algorithm.replace(/"/g, '""')}"`,
+      asset.keySize ? `${asset.keySize}` : 'N/A',
+      `"${asset.riskLevel.replace(/"/g, '""')}"`,
+      `"${asset.owner.replace(/"/g, '""')}"`,
+      `"${asset.lifecycle.replace(/"/g, '""')}"`,
+      `"${asset.status.replace(/"/g, '""')}"`
+    ]);
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `quarkshield_crypto_cmdb_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Compute SVG nodes and links for the SVG dependency mapper
   const svgGraph = useMemo(() => {
     const serviceAssets = enrichedAssets.filter(a => a.businessService === graphService);
@@ -481,21 +523,25 @@ export const Inventory: React.FC<InventoryProps> = ({
                 className="chat-text-input" 
                 style={{ padding: '0.5rem', fontSize: '0.9rem', width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff' }}
               >
-                <option value="aws">AWS: ACM, ELB, API Gateway, IAM, Secrets Manager (Tier 1)</option>
-                <option value="azure">Azure: Graph API, Key Vault, Azure Resource Manager (Tier 1)</option>
-                <option value="gcp">GCP: Certificates, Load Balancers (Tier 1)</option>
-                <option value="k8s">Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh (Tier 1)</option>
-                <option value="f5">F5: SSL Profiles, VIPs, Certificates (Tier 1)</option>
-                <option value="paloalto">Palo Alto: VPNs, Certificates (Tier 1)</option>
-                <option value="cisco">Cisco: VPN Infrastructure (Tier 1)</option>
-                <option value="splunk">Splunk SIEM API Logs (Tier 2)</option>
-                <option value="defender">Microsoft Defender for Endpoint (Tier 2)</option>
-                <option value="crowdstrike">CrowdStrike Falcon Insight (Tier 2)</option>
-                <option value="qualys">Qualys VMDR Scanning (Tier 2)</option>
-                <option value="tenable">Tenable SecurityCenter (Tier 2)</option>
-                <option value="workday">Workday HR Identity Catalog (Tier 2)</option>
-                <option value="sharepoint">SharePoint Document Assets (Tier 2)</option>
-                <option value="servicenow">ServiceNow CMDB Service Catalog (Tier 2)</option>
+                <optgroup label="Tier 1: Agentless API Discovery (Direct Cloud/Network APIs)" style={{ background: 'var(--bg-card)', color: 'var(--accent-cyan)' }}>
+                  <option value="aws" style={{ color: '#ffffff' }}>AWS: ACM, ELB, API Gateway, IAM, Secrets Manager</option>
+                  <option value="azure" style={{ color: '#ffffff' }}>Azure: Graph API, Key Vault, Azure Resource Manager</option>
+                  <option value="gcp" style={{ color: '#ffffff' }}>GCP: Certificates, Load Balancers</option>
+                  <option value="k8s" style={{ color: '#ffffff' }}>Kubernetes: TLS Secrets, Ingress Controllers, Service Mesh</option>
+                  <option value="f5" style={{ color: '#ffffff' }}>F5: SSL Profiles, VIPs, Certificates</option>
+                  <option value="paloalto" style={{ color: '#ffffff' }}>Palo Alto: VPNs, Certificates</option>
+                  <option value="cisco" style={{ color: '#ffffff' }}>Cisco: VPN Infrastructure</option>
+                </optgroup>
+                <optgroup label="Tier 2: Tool-Based Inventory Sync (Leverages Existing Inventories)" style={{ background: 'var(--bg-card)', color: 'var(--accent-purple)' }}>
+                  <option value="splunk" style={{ color: '#ffffff' }}>Splunk: Connect as Splunk User & query 'ia' index</option>
+                  <option value="defender" style={{ color: '#ffffff' }}>Microsoft Defender: Extract active endpoint host certs</option>
+                  <option value="crowdstrike" style={{ color: '#ffffff' }}>CrowdStrike: Sync endpoint KEX ciphers from Falcon</option>
+                  <option value="qualys" style={{ color: '#ffffff' }}>Qualys: Sync discovered host SSL configurations</option>
+                  <option value="tenable" style={{ color: '#ffffff' }}>Tenable: Ingest Nessus SSL scan profiles</option>
+                  <option value="workday" style={{ color: '#ffffff' }}>Workday: Sync directory names & owner identities</option>
+                  <option value="sharepoint" style={{ color: '#ffffff' }}>SharePoint: Parse asset inventory documents</option>
+                  <option value="servicenow" style={{ color: '#ffffff' }}>ServiceNow: Get configuration items & create tickets</option>
+                </optgroup>
               </select>
             </div>
 
@@ -765,6 +811,25 @@ export const Inventory: React.FC<InventoryProps> = ({
                 <option value="Remediated">Remediated</option>
               </select>
             </div>
+
+            {/* Export CSV Button */}
+            <button 
+              onClick={handleExportCSV}
+              className="btn-secondary"
+              style={{ 
+                padding: '0.25rem 0.65rem', 
+                fontSize: '0.8rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.3rem',
+                borderColor: 'rgba(0, 243, 255, 0.3)',
+                color: 'var(--accent-cyan)'
+              }}
+              title="Export filtered records to CSV"
+            >
+              <FileSpreadsheet size={13} />
+              <span>Export CSV</span>
+            </button>
           </div>
         </div>
 
