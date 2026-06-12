@@ -10,8 +10,55 @@ import {
   Scale,
   ShieldCheck,
   AlertTriangle,
-  Copyright
+  Copyright,
+  Database,
+  Radio,
+  Brain,
+  Terminal
 } from 'lucide-react';
+
+const capabilities = [
+  {
+    id: 'cmdb',
+    title: 'Crypto CMDB',
+    badge: 'Inventory Control',
+    badgeColor: 'var(--accent-cyan)',
+    description: 'Centralized discovery registry for certificates, private keys, host configurations, and application endpoints. Tracks ownership, crypto expiration lifecycles, and downstream service mappings.',
+    icon: Database
+  },
+  {
+    id: 'passive',
+    title: 'Passive Discovery',
+    badge: 'Tier 3 / Non-Intrusive',
+    badgeColor: '#10b981',
+    description: 'Continuous real-time packet capture (PCAP) analysis to identify insecure TLS handshakes, legacy SSH ciphers, and unencrypted traffic flows without agent overhead.',
+    icon: Radio
+  },
+  {
+    id: 'ai',
+    title: 'AI Correlation & Threat Modeling',
+    badge: 'AI-Powered',
+    badgeColor: '#c084fc',
+    description: "Employs Mosca's Theorem threat modeling to calculate organizational cryptographic deficits. Automatically clusters assets into wave-prioritized PQC migration playbooks.",
+    icon: Brain
+  },
+  {
+    id: 'compliance',
+    title: 'OPA Compliance Audits',
+    badge: 'NIST & CNSA 2.0',
+    badgeColor: 'var(--accent-purple)',
+    description: 'Executes declarative Rego policies via Open Policy Agent (OPA) to audit key lengths, signature validity, and compliance thresholds against NIST SP 800-219 guidelines.',
+    icon: ShieldCheck
+  },
+  {
+    id: 'siem',
+    title: 'SIEM Integration',
+    badge: 'Enterprise Telemetry',
+    badgeColor: 'var(--status-warning)',
+    description: 'Bridges security gaps by relaying real-time cryptographic audit logs, vulnerability alerts, and network telemetry directly to centralized SIEM platforms via syslog and JSON endpoints.',
+    icon: Terminal
+  }
+];
 
 interface AuthScreenProps {
   onAuthSuccess: (token: string, user: { id: string; email: string; role: string }) => void;
@@ -178,76 +225,35 @@ eHl6MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
           </p>
 
           <div style={{
+            background: 'linear-gradient(135deg, rgba(127, 0, 255, 0.04) 0%, rgba(0, 242, 254, 0.04) 100%)',
+            border: '1px solid rgba(0, 242, 254, 0.15)',
+            padding: '1.75rem',
+            borderRadius: '12px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '1.1rem',
-            background: 'rgba(255, 255, 255, 0.02)',
-            border: '1px solid var(--border-normal)',
-            padding: '1.5rem',
-            borderRadius: '8px',
-            boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.05)'
+            gap: '1rem',
+            boxShadow: '0 8px 32px rgba(0, 242, 254, 0.03)',
+            marginTop: '1.5rem',
+            textAlign: 'left'
           }}>
-            {isMasterPortal ? (
-              <>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>Orchestrate client tenants</strong> and spin up physically isolated secure nodes dynamically.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>Define compliance models</strong> by managing OPA Rego policies for NIST SP 800-219 and CNSA 2.0.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>Monitor platform health</strong> and oversee active customer databases, email relays, and server ports.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>Centralized audits</strong> to run diagnostic crawls and master cryptographic tests in a secure sandbox.
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>Discover certificates and keys</strong> across enterprise environments.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>Identify vulnerable cryptography</strong> using Shor's and Grover's analysis.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>Generate migration plans</strong> and risk timelines built on Mosca's Theorem.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>Compliance reporting</strong> for NIST SP 800-219, CNSA 2.0, and Executive Order 14028.
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '1.2rem', lineHeight: '1' }}>•</span>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                    <strong>AI-powered remediation</strong> recommendations and config patches.
-                  </span>
-                </div>
-              </>
-            )}
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+              <Shield size={18} color="var(--accent-cyan)" />
+              <span>Enterprise PQC Transition Gateway</span>
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+              QuarkShield automates transition planning for the post-quantum epoch. Scan host configurations, inventory certificate authorities, evaluate downstream system impacts, and verify alignment with security mandates.
+            </p>
+            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>CNSA 2.0</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Policy Baseline</div>
+              </div>
+              <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)' }}></div>
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-purple)' }}>NIST FIPS</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Standard Compliant</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -413,6 +419,66 @@ eHl6MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
               </span>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Platform Core Capabilities */}
+      <div style={{ marginTop: '3.5rem', width: '100%' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <h3 style={{ 
+            fontSize: '1.6rem', 
+            fontWeight: 800, 
+            letterSpacing: '-0.02em', 
+            background: 'linear-gradient(to right, #ffffff, #b3b3b3)', 
+            WebkitBackgroundClip: 'text', 
+            WebkitTextFillColor: 'transparent',
+            margin: '0 0 0.5rem 0'
+          }}>
+            Platform Core Capabilities
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', margin: 0 }}>
+            Enterprise post-quantum cryptanalysis, continuous passive ingestion, and policy-driven compliance auditing.
+          </p>
+        </div>
+
+        <div className="capability-grid">
+          {capabilities.map((cap) => {
+            const Icon = cap.icon;
+            return (
+              <div key={cap.id} className="capability-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="capability-icon-wrapper">
+                    <Icon size={20} />
+                  </div>
+                  <span className="capability-badge" style={{ 
+                    color: cap.badgeColor,
+                    borderColor: cap.badgeColor
+                  }}>
+                    {cap.badge}
+                  </span>
+                </div>
+                <div>
+                  <h4 style={{ 
+                    fontSize: '1.05rem', 
+                    fontWeight: 700, 
+                    color: '#ffffff', 
+                    margin: '0 0 0.4rem 0',
+                    letterSpacing: '-0.01em'
+                  }}>
+                    {cap.title}
+                  </h4>
+                  <p style={{ 
+                    fontSize: '0.84rem', 
+                    color: 'var(--text-secondary)', 
+                    lineHeight: '1.5',
+                    margin: 0
+                  }}>
+                    {cap.description}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
