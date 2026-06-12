@@ -883,7 +883,7 @@ eHl6MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>QuarkShieldVPN-darwin-universal.zip (universal app)</div>
                       </div>
                       <a 
-                        href="https://github.com/spinovation/Quantum-RAP/releases" 
+                        href="https://github.com/spinovation/Quantum-safe-VPN/releases" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="btn-secondary" 
@@ -904,12 +904,12 @@ eHl6MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.6rem 0.8rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div>
+                       <div>
                         <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>Windows Installer</div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>QuarkShieldVPN-win32-x64.zip (executable installer)</div>
                       </div>
                       <a 
-                        href="https://github.com/spinovation/Quantum-RAP/releases" 
+                        href="https://github.com/spinovation/Quantum-safe-VPN/releases" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="btn-secondary" 
