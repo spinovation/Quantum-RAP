@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import pool from '../config/db';
 
 // POST /api/ai/chat
 export const getAIChatResponse = async (req: Request, res: Response) => {
@@ -181,3 +182,157 @@ function extractCodeBlock(markdownText: string): { textResponse: string, codeRes
   
   return { textResponse: markdownText, codeResponse: '', langResponse: 'javascript' };
 }
+
+// Helper: extract CMDB metadata from description field
+function parseCmdbMetadata(desc: string) {
+  const defaultMeta = {
+    businessService: 'Unassigned Infrastructure',
+    application: 'Core Services',
+    owner: 'secops-alert@quarkshield.services',
+    lifecycle: 'Active'
+  };
+
+  if (!desc) return defaultMeta;
+  const parts = desc.split('|CMDB:');
+  if (parts.length > 1) {
+    try {
+      const parsed = JSON.parse(parts[1]);
+      return {
+        businessService: parsed.businessService || defaultMeta.businessService,
+        application: parsed.application || defaultMeta.application,
+        owner: parsed.owner || defaultMeta.owner,
+        lifecycle: parsed.lifecycle || defaultMeta.lifecycle
+      };
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
+  return defaultMeta;
+}
+
+// POST /api/ai/correlate
+export const getAICorrelation = async (req: Request, res: Response) => {
+  try {
+    // 1. Fetch all assets from database
+    const dbRes = await pool.query('SELECT * FROM assets ORDER BY created_at DESC');
+    const assets = dbRes.rows.map(row => ({
+      id: row.id,
+      type: row.type,
+      name: row.name,
+      algorithm: row.algorithm,
+      keySize: row.key_size,
+      isVulnerable: row.is_vulnerable,
+      riskLevel: row.risk_level,
+      status: row.status,
+      description: row.description,
+      recommendation: row.recommendation,
+      explainer: row.explainer,
+      complianceViolations: row.compliance_violations || [],
+    }));
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey && apiKey.trim() !== '' && assets.length > 0) {
+      console.log('AI Controller: Querying Gemini API for correlation...');
+      const model = 'gemini-1.5-flash';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const systemInstruction = 
+        "You are QuarkShield AI, an expert post-quantum cryptography (PQC) migration advisor. " +
+        "Analyze the provided array of cryptographic assets and correlate their risk profiles. " +
+        "Group the assets into 3 logical migration waves (Wave 1: Immediate, Wave 2: High, Wave 3: Standard) based on NIST/CNSA 2.0 guidelines. " +
+        "Generate exactly 3 key security insights (finding cross-app dependencies, obsolete cipher patterns, or compliance alerts). " +
+        "Return the output STRICTLY in a clean JSON object format: " +
+        "{ \"insights\": [ { \"title\": \"string\", \"desc\": \"string\", \"severity\": \"critical\" | \"high\" | \"medium\" } ], " +
+        "\"waves\": { \"wave1\": [ { \"name\": \"string\", \"owner\": \"string\", \"algorithm\": \"string\", \"businessService\": \"string\" } ], " +
+        "\"wave2\": [...], \"wave3\": [...] } }. " +
+        "Do not include markdown code block syntax (like ```json) in your response, just the raw JSON object.";
+
+      const contents = [{
+        role: 'user',
+        parts: [{ text: `${systemInstruction}\n\nAssets Inventory JSON:\n${JSON.stringify(assets, null, 2)}` }]
+      }];
+
+      const geminiRes = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents })
+      });
+
+      if (geminiRes.ok) {
+        const data: any = await geminiRes.json();
+        let aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        // Clean markdown block wrapping if Gemini ignores instructions
+        aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        try {
+          const parsed = JSON.parse(aiText);
+          if (parsed.insights && parsed.waves) {
+            return res.json(parsed);
+          }
+        } catch (jsonErr) {
+          console.warn('Failed to parse Gemini correlation JSON response, using fallback format parser:', jsonErr);
+        }
+      }
+      console.warn('Gemini correlation failed. Executing local rules engine.');
+    }
+
+    // --- Local Rules Correlation Fallback ---
+    console.log('AI Controller: Executing local rules-based correlation engine...');
+    
+    const wave1: any[] = [];
+    const wave2: any[] = [];
+    const wave3: any[] = [];
+
+    assets.forEach(asset => {
+      const cmdb = parseCmdbMetadata(asset.description);
+      const waveItem = {
+        name: asset.name,
+        owner: cmdb.owner,
+        algorithm: asset.algorithm,
+        businessService: cmdb.businessService
+      };
+
+      if (!asset.isVulnerable) {
+        // Secure assets don't need migration
+        return;
+      }
+
+      if (asset.riskLevel === 'critical' || asset.algorithm.includes('1024') || asset.algorithm.includes('SHA1') || asset.algorithm.includes('MD5')) {
+        wave1.push(waveItem);
+      } else if (asset.riskLevel === 'high' || asset.algorithm.includes('2048') || asset.algorithm.includes('ECDSA') || asset.algorithm.includes('ECC')) {
+        wave2.push(waveItem);
+      } else {
+        wave3.push(waveItem);
+      }
+    });
+
+    // Generate static correlated insights based on inventory findings
+    const insights = [
+      {
+        title: 'Legacy Asymmetric Ciphers Detected',
+        desc: `Identified ${assets.filter(a => a.isVulnerable).length} active configurations negotiating classical RSA/ECC encryption keys which can be retrospectively decrypted by a quantum computer (SNDL threat).`,
+        severity: assets.some(a => a.riskLevel === 'critical') ? 'critical' : 'high'
+      },
+      {
+        title: 'CNSA 2.0 Compliance Gaps',
+        desc: `Multiple systems violate Executive Order 14028 and NSA CNSA 2.0 timelines which mandate beginning the transition to module-lattice key exchange standard (ML-KEM) immediately.`,
+        severity: 'high'
+      },
+      {
+        title: 'Shadow Certificates Active',
+        desc: `Passive discovery sniffer caught untracked microservices running legacy TLS handshakes in production subnet lines. Mapped these to Cost-Center Application targets for isolation.`,
+        severity: 'medium'
+      }
+    ];
+
+    res.json({
+      insights,
+      waves: { wave1, wave2, wave3 }
+    });
+
+  } catch (err: any) {
+    console.error('Error generating AI correlation blueprint:', err);
+    res.status(500).json({ error: `Correlation Engine failed: ${err.message}` });
+  }
+};

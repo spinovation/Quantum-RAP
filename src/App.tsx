@@ -168,6 +168,7 @@ function App() {
             selectedAsset={selectedAsset}
             setSelectedAsset={setSelectedAsset}
             onAddAssets={handleAddAssets}
+            setActiveTab={setActiveTab}
           />
         );
       case 'migration':

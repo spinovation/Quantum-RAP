@@ -222,7 +222,72 @@ CREATE TABLE assets (
 
 ---
 
+## 🤖 AI Correlation Engine (Threat Modeling & Prioritization)
+
+**Purpose**: Runs automated threat modeling scans over the mapped CMDB inventory, correlating risk parameters (like key lengths and algorithms) with active business dependencies to prioritize wave-based migration blueprints and risk insights.
+
+### 1. UI Integration & Programmatic Redirection
+- **Console Placement**: The AI Correlation Engine is integrated as the third sub-tab inside the **Crypto CMDB** control center (`Inventory.tsx`), appearing directly after the **Passive Discovery (Tier 3)** tab.
+- **Workflow**:
+  1. Triggering the audit runs a progressive thread simulation with real-time sync logs and dynamic rendering of insights and wave blueprints.
+  2. Clicking the **Remediate** action button next to any wave asset sets the preloaded remediation query in the browser's `sessionStorage` under `preloaded_advisor_query`.
+  3. The console programmatically switches navigation focus (`setActiveTab('ai')`) to the **AI Remediation Hub** (`AIAdvisor.tsx`), which intercepts the preloaded query on mount and submits it directly to the virtual assistant chat.
+
+### 2. Dual-Mode Execution Architecture
+
+The correlation controller (`aiController.ts`) implements a robust dual-mode routing handler:
+
+1. **Gemini API Model (Online Mode)**:
+   * **Trigger Condition**: Activated when `GEMINI_API_KEY` is set in the process environment variables.
+   * **Execution Flow**: Pulls all records from the PostgreSQL `assets` table, converts them to a structured JSON list, and constructs a detailed system instruction for the `gemini-1.5-flash` model.
+   * **Prompt Directive**: Instructs the model to perform threat modeling on the assets, grouping vulnerable classical assets into 3 waves (Immediate, High, Standard) based on NIST/CNSA 2.0 guidelines, and calculating exactly 3 risk insights.
+
+2. **Deterministic Rules Engine (Local Fallback Mode)**:
+   * **Trigger Condition**: Activated automatically when the `GEMINI_API_KEY` is missing, empty, or if the API request fails/times out.
+   * **Postures Evaluated**:
+     * **Wave 1 (Immediate Migration)**: Assets marked with `critical` risk level, asymmetric algorithms utilizing key sizes `< 2048` bits, or negotiating legacy hashing protocols (`SHA-1`, `MD5`).
+     * **Wave 2 (Phase 2 Migration)**: Classical asymmetric key sizes of `2048` bits, or standard elliptic curves (`ECDSA`, `ECC`), or assets marked as `high` risk.
+     * **Wave 3 (Standard Migration)**: All other quantum-vulnerable configurations (such as standard asymmetric `RSA-4096` on non-critical endpoints).
+   * **Metadata Parsing**: Isolates ownership contacts and business services by splitting the description string on the `|CMDB:` flag.
+   * **Insights Calculation**: Generates default static findings reflecting active cipher categories mapped in the inventory.
+
+### 2. API Endpoint Specification
+
+- **Endpoint**: `POST /api/ai/correlate`
+- **Request Headers**:
+  ```http
+  Authorization: Bearer <JWT_TOKEN>
+  Content-Type: application/json
+  ```
+- **Response Payload Schema**:
+  ```json
+  {
+    "insights": [
+      {
+        "title": "Legacy Asymmetric Ciphers Detected",
+        "desc": "Identified 8 active configurations negotiating classical RSA/ECC encryption keys...",
+        "severity": "critical"
+      }
+    ],
+    "waves": {
+      "wave1": [
+        {
+          "name": "aws-acm-payment-elb-cert",
+          "owner": "payment-infra@spinovation.com",
+          "algorithm": "RSA-2048",
+          "businessService": "Transactional Core Payment"
+        }
+      ],
+      "wave2": [],
+      "wave3": []
+    }
+  }
+  ```
+
+---
+
 ## 🚀 Future Roadmap: Tier 4
 
 The ingestion and scanning architecture has been modularly constructed. Future iterations will introduce:
 - **Tier 4 (Binary Static Code Analysis)**: Scanning compiled binaries, jar archives, and server filesystem images to extract hardcoded keys, SSH credentials, and embedded cipher libraries.
+

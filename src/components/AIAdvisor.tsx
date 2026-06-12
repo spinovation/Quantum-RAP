@@ -148,14 +148,17 @@ fn main() {
     }
   ];
 
-  const handleSend = async () => {
-    const text = inputText.trim();
+  const handleSend = async (customText?: any) => {
+    const text = (typeof customText === 'string' ? customText : inputText).trim();
     if (!text) return;
 
     const userMsg: ChatMessage = { sender: 'user', text };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
-    setInputText('');
+    
+    if (typeof customText !== 'string') {
+      setInputText('');
+    }
 
     // Add temporary loading indicator bubble
     const loadingMsg: ChatMessage = { sender: 'ai', text: 'Typing...' };
@@ -257,6 +260,15 @@ fn main() {
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+
+  // Mount effect to check for preloaded remediation advice query from other tabs (e.g. CMDB Correlation blueprint)
+  useEffect(() => {
+    const preloadedQuery = sessionStorage.getItem('preloaded_advisor_query');
+    if (preloadedQuery) {
+      sessionStorage.removeItem('preloaded_advisor_query');
+      handleSend(preloadedQuery);
+    }
+  }, []);
 
   const activePlaybook = playbooks.find(p => p.id === selectedPlaybookId) || playbooks[0];
 

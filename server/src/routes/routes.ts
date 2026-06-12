@@ -13,7 +13,7 @@ import {
   syncADCSCertificates 
 } from '../controllers/caController';
 import { getComplianceReport } from '../controllers/complianceController';
-import { getAIChatResponse } from '../controllers/aiController';
+import { getAIChatResponse, getAICorrelation } from '../controllers/aiController';
 import { 
   register, 
   login, 
@@ -59,6 +59,7 @@ router.post('/ca/adcs/sync', rejectOnAdminNode, syncADCSCertificates); // Kept o
 // Compliance & AI Chatbot
 router.get('/compliance', authenticateToken, restrictClientOnAdminNode, getComplianceReport);
 router.post('/ai/chat', authenticateToken, restrictClientOnAdminNode, getAIChatResponse);
+router.post('/ai/correlate', authenticateToken, restrictClientOnAdminNode, getAICorrelation);
 
 // Admin Orchestration (Master Portal Only)
 router.get('/admin/clients', authenticateToken, requireAdmin, getClients);
