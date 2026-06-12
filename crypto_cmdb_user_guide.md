@@ -173,3 +173,18 @@ Passive Discovery helps identify untracked endpoints negotiating security protoc
 ### Q8: What happens when I click the "Remediate" button in a migration wave?
 **A**: Clicking "Remediate" logs a context-aware prompt containing the asset name, algorithm, and business service into your local session variables, navigates you to the Virtual Cryptography Advisor chatbot, and submits the prompt automatically. The AI advisor then responds with targeted, quantum-safe code or config snippets tailored to that specific environment.
 
+### Q9: Does the Crypto CMDB data model track business context and ownership dependencies?
+**A**: Yes. The data model is business-centric rather than just showing raw technical findings. It tracks the complete dependency chain: `Business Service ➔ Application ➔ Endpoint ➔ Cryptographic Asset ➔ Algorithm ➔ Risk`. It displays active ownership contacts, asset lifecycle status (Active, Migrating, Revoked), and upstream/downstream impact inside interactive dependency graphs and asset details panels.
+
+### Q10: Can the AI Correlation Engine aggregate data across multiple security and identity systems?
+**A**: Yes. The AI Correlation Engine ingests and correlates data points across ServiceNow configurations, Active Directory user trees, DNS configs, cloud provider accounts, and logs from security tools (like Splunk and Qualys). It automatically maps vulnerable ciphers and endpoints to the correct owners/stakeholders, estimates migration complexity, and recommends specific prioritized remediation actions.
+
+### Q11: What solutions are available to manage and execute the migration of vulnerable cryptography?
+**A**: QuarkShield provides end-to-end tooling for this lifecycle:
+*   **Search & Discovery**: Instantly filter and find vulnerable assets (such as all `RSA-2048` certificates) by keyword.
+*   **Impact Mapping**: Visualize exactly which applications depend on vulnerable ciphers using the interactive SVG dependency graph.
+*   **Migration Timelines**: Auto-generate a structured wave-based roadmap (Immediate, High, Standard) based on vulnerability severity.
+*   **Work Ticket Generation**: Automatically generate and dispatch ServiceNow incidents and Jira tickets with pre-configured remediation scripts.
+*   **Reporting**: Export active inventory lists directly to CSV for executive and compliance reporting.
+
+
