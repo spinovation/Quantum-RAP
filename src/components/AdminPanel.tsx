@@ -8,7 +8,10 @@ import {
   Globe,
   RefreshCw,
   Lock,
-  Unlock
+  Unlock,
+  Search,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 
 interface ClientStats {
@@ -266,6 +269,98 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  // Search and Sort State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<'email' | 'row_locked' | 'last_login' | 'status' | 'appPort' | 'userCount'>('email');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const requestSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Filter users based on search query (email or workspace prefix)
+  const filteredUsers = users.filter(u => {
+    const sanitizedPrefix = u.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    return u.email.toLowerCase().includes(searchQuery.toLowerCase()) || 
+           sanitizedPrefix.includes(searchQuery.toLowerCase());
+  });
+
+  // Helper to extract sorting values
+  const getSortValue = (u: UserInfo, field: typeof sortField) => {
+    const sanitizedPrefix = u.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    const client = clients.find(c => c.name === sanitizedPrefix);
+    const stats = client ? clientStats[client.name] : null;
+
+    switch (field) {
+      case 'email':
+        return u.email.toLowerCase();
+      case 'row_locked':
+        return u.row_locked ? 1 : 0;
+      case 'last_login':
+        return u.last_login ? new Date(u.last_login).getTime() : 0;
+      case 'status':
+        if (!client) return 0;
+        const isOnline = stats ? stats.status === 'active' : client.status === 'active';
+        return isOnline ? 2 : 1;
+      case 'appPort':
+        return client ? client.appPort : 0;
+      case 'userCount':
+        return stats ? stats.userCount : 0;
+      default:
+        return '';
+    }
+  };
+
+  // Sort filtered users
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    const valA = getSortValue(a, sortField);
+    const valB = getSortValue(b, sortField);
+
+    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const renderSortableHeader = (label: string, field: typeof sortField, style?: React.CSSProperties) => {
+    const isActive = sortField === field;
+    return (
+      <th 
+        onClick={() => requestSort(field)} 
+        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-cyan)'}
+        onMouseLeave={(e) => e.currentTarget.style.color = isActive ? 'var(--accent-cyan)' : 'var(--text-secondary)'}
+        style={{ 
+          cursor: 'pointer', 
+          userSelect: 'none',
+          color: isActive ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+          transition: 'all 0.2s',
+          ...style 
+        }}
+      >
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span>{label}</span>
+          <span style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            color: isActive ? 'var(--accent-cyan)' : 'var(--text-muted)',
+            opacity: isActive ? 1 : 0.4,
+            transition: 'opacity 0.2s'
+          }}>
+            {isActive ? (
+              sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+            ) : (
+              <ChevronUp size={14} />
+            )}
+          </span>
+        </div>
+      </th>
+    );
+  };
+
   return (
     <>
       {/* Header */}
@@ -365,28 +460,65 @@ export const AdminPanel: React.FC = () => {
 
       {/* Unified Tenant Management Registry */}
       <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.5rem' }}>
-        <h3 style={{ fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Users size={18} color="var(--accent-cyan)" /> Administrative Tenant Registry
-        </h3>
-        <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '-0.5rem' }}>
-          Manage client user accounts, toggle premium CMDB services, lock/unlock configs, and deploy isolated secure nodes.
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+              <Users size={18} color="var(--accent-cyan)" /> Administrative Tenant Registry
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Manage client user accounts, toggle premium CMDB services, lock/unlock configs, and deploy isolated secure nodes.
+            </p>
+          </div>
+          
+          {/* User Search Input */}
+          <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+            <Search 
+              size={14} 
+              style={{ 
+                position: 'absolute', 
+                left: '10px', 
+                top: '50%', 
+                transform: 'translateY(-50%)', 
+                color: 'var(--text-muted)' 
+              }} 
+            />
+            <input 
+              type="text" 
+              placeholder="Search email or workspace..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.45rem 1rem 0.45rem 2.2rem',
+                borderRadius: '6px',
+                background: 'rgba(0,0,0,0.3)',
+                border: '1px solid var(--border-normal)',
+                color: 'var(--text-primary)',
+                fontSize: '0.85rem',
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--accent-cyan)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--border-normal)'}
+            />
+          </div>
+        </div>
 
         <div style={{ overflowX: 'auto' }}>
           <table className="quark-table">
             <thead>
               <tr>
-                <th style={{ width: '60px', textAlign: 'center' }}>Lock</th>
-                <th>User & Workspace</th>
-                <th>Network Channels</th>
-                <th>Database Stats</th>
-                <th>Last Login</th>
-                <th>Orchestration Status</th>
-                <th style={{ textAlign: 'center' }}>Actions</th>
+                {renderSortableHeader('Lock', 'row_locked', { width: '80px', textAlign: 'center' })}
+                {renderSortableHeader('User & Workspace', 'email')}
+                {renderSortableHeader('Network Channels', 'appPort')}
+                {renderSortableHeader('Database Stats', 'userCount')}
+                {renderSortableHeader('Last Login', 'last_login')}
+                {renderSortableHeader('Orchestration Status', 'status')}
+                <th style={{ textAlign: 'center', userSelect: 'none', color: 'var(--text-secondary)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map(u => {
+              {sortedUsers.map(u => {
                 const sanitizedPrefix = u.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
                 const client = clients.find(c => c.name === sanitizedPrefix);
                 const stats = client ? clientStats[client.name] : null;
@@ -558,10 +690,12 @@ export const AdminPanel: React.FC = () => {
                   </tr>
                 );
               })}
-              {users.length === 0 && (
+              {sortedUsers.length === 0 && (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
-                    No registered client users found in master database.
+                    {users.length === 0 
+                      ? "No registered client users found in master database."
+                      : "No registered client users matched your search criteria."}
                   </td>
                 </tr>
               )}
