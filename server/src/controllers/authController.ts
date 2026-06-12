@@ -121,6 +121,12 @@ export const login = async (req: Request, res: Response) => {
       [token, user.id, expiresAt]
     );
 
+    // Update last_login timestamp
+    await pool.query(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+      [user.id]
+    );
+
     const isAdminNode = process.env.IS_ADMIN_NODE === 'true';
     let tenantPort: number | null = null;
     if (isAdminNode && user.role !== 'admin') {
@@ -420,6 +426,7 @@ export const me = async (req: any, res: Response) => {
       id: req.user.id,
       email: req.user.email,
       role: req.user.role,
+      cmdb_enabled: req.user.cmdb_enabled,
       isAdminNode,
       tenantPort,
     }

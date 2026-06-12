@@ -16,7 +16,7 @@ import { RefreshCw } from 'lucide-react';
 
 function App() {
   const [token, setToken] = useState<string | null>(sessionStorage.getItem('quarkshield_token'));
-  const [user, setUser] = useState<{ id: string; email: string; role: string; isAdminNode?: boolean; tenantPort?: number | null } | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string; role: string; cmdb_enabled?: boolean; isAdminNode?: boolean; tenantPort?: number | null } | null>(null);
   const [loading, setLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -120,7 +120,7 @@ function App() {
       });
   };
 
-  const handleAuthSuccess = (newToken: string, newUser: { id: string; email: string; role: string; isAdminNode?: boolean; tenantPort?: number | null }) => {
+  const handleAuthSuccess = (newToken: string, newUser: { id: string; email: string; role: string; cmdb_enabled?: boolean; isAdminNode?: boolean; tenantPort?: number | null }) => {
     sessionStorage.setItem('quarkshield_token', newToken);
     setToken(newToken);
     setUser(newUser);
@@ -158,6 +158,9 @@ function App() {
           />
         );
       case 'inventory':
+        if (user && user.role === 'user' && !user.cmdb_enabled) {
+          return <Overview assets={assets} setActiveTab={setActiveTab} setSelectedAsset={setSelectedAsset} />;
+        }
         return (
           <Inventory 
             assets={assets} 
@@ -176,9 +179,7 @@ function App() {
       case 'siem':
         return <SIEM />;
       case 'admin':
-        return <AdminPanel showOnlyStatsAndList={true} />;
-      case 'deploy':
-        return <AdminPanel showOnlyDeployForm={true} />;
+        return <AdminPanel />;
       default:
         return (
           <Overview 
@@ -335,6 +336,7 @@ function App() {
         vulnerabilityCount={assets.filter(a => a.isVulnerable).length}
         role={user.role}
         email={user.email}
+        cmdbEnabled={user.cmdb_enabled}
         onLogout={handleLogout}
       />
       <main className="main-content">

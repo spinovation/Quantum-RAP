@@ -20,7 +20,7 @@ interface ClientInfo {
 async function replicateUserToTenantDb(
   clientName: string,
   dbPort: number,
-  userRow: { email: string; password_hash: string; salt: string; role: string }
+  userRow: { email: string; password_hash: string; salt: string; role: string; cmdb_enabled: boolean }
 ): Promise<boolean> {
   const maxRetries = 15;
   const retryIntervalMs = 2000;
@@ -56,10 +56,10 @@ async function replicateUserToTenantDb(
 
       // Insert the user
       await client.query(
-        `INSERT INTO users (email, password_hash, salt, role, email_verified)
-         VALUES ($1, $2, $3, $4, true)
-         ON CONFLICT (email) DO UPDATE SET password_hash = $2, salt = $3, role = $4`,
-        [userRow.email, userRow.password_hash, userRow.salt, userRow.role]
+        `INSERT INTO users (email, password_hash, salt, role, email_verified, cmdb_enabled)
+         VALUES ($1, $2, $3, $4, true, $5)
+         ON CONFLICT (email) DO UPDATE SET password_hash = $2, salt = $3, role = $4, cmdb_enabled = $5`,
+        [userRow.email, userRow.password_hash, userRow.salt, userRow.role, !!userRow.cmdb_enabled]
       );
 
       console.log(`Successfully replicated user ${userRow.email} to tenant database ${clientName}.`);
@@ -171,11 +171,14 @@ export const provisionClient = async (req: Request, res: Response) => {
     // If email is provided, verify they exist in master DB and retrieve credentials
     let userRow: any = null;
     if (email) {
-      const userRes = await pool.query('SELECT email, password_hash, salt, role FROM users WHERE email = $1', [email]);
+      const userRes = await pool.query('SELECT email, password_hash, salt, role, cmdb_enabled, row_locked FROM users WHERE email = $1', [email]);
       if (userRes.rows.length === 0) {
         return res.status(400).json({ error: `User with email '${email}' not found in master database.` });
       }
       userRow = userRes.rows[0];
+      if (userRow.row_locked) {
+        return res.status(400).json({ error: 'This user row is locked in the administrative registry.' });
+      }
     }
 
     const geminiKey = geminiApiKey ? geminiApiKey.trim() : '';
@@ -233,13 +236,102 @@ export const provisionClient = async (req: Request, res: Response) => {
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, role, email_verified, created_at FROM users WHERE role = $1 ORDER BY created_at DESC',
+      'SELECT id, email, role, email_verified, cmdb_enabled, row_locked, last_login, created_at FROM users WHERE role = $1 ORDER BY created_at DESC',
       ['user']
     );
     res.json(result.rows);
   } catch (err: any) {
     console.error('Error fetching registered users:', err);
     res.status(500).json({ error: `Failed to fetch registered users: ${err.message}` });
+  }
+};
+
+// Helper to update cmdb_enabled flag on a tenant's database
+async function updateTenantUserCMDB(
+  clientName: string,
+  dbPort: number,
+  email: string,
+  enabled: boolean
+): Promise<boolean> {
+  let tempPool: Pool | null = null;
+  try {
+    tempPool = new Pool({
+      user: 'postgres',
+      host: 'host.docker.internal',
+      database: `quarkshield_${clientName}`,
+      password: 'postgres',
+      port: dbPort,
+      connectionTimeoutMillis: 3000
+    });
+
+    const client = await tempPool.connect();
+    await client.query(
+      'UPDATE users SET cmdb_enabled = $1 WHERE email = $2',
+      [enabled, email]
+    );
+    client.release();
+    await tempPool.end();
+    return true;
+  } catch (err: any) {
+    console.warn(`Failed to update CMDB flag in tenant database ${clientName}: ${err.message}`);
+    if (tempPool) {
+      try {
+        await tempPool.end();
+      } catch (e) {}
+    }
+    return false;
+  }
+}
+
+// POST /api/admin/users/:id/cmdb
+export const toggleUserCMDB = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { enabled } = req.body;
+    
+    // Check if user is locked
+    const userRes = await pool.query('SELECT email, row_locked FROM users WHERE id = $1', [id]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    if (userRes.rows[0].row_locked) {
+      return res.status(400).json({ error: 'User row is locked. Unlock it first to make changes.' });
+    }
+
+    await pool.query(
+      'UPDATE users SET cmdb_enabled = $1 WHERE id = $2',
+      [!!enabled, id]
+    );
+
+    // Propagate to tenant database if active/deployed
+    const email = userRes.rows[0].email;
+    const emailPrefix = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    const ports = getPortsFromCompose(emailPrefix);
+    if (ports && ports.dbPort) {
+      await updateTenantUserCMDB(emailPrefix, ports.dbPort, email, !!enabled);
+    }
+
+    res.json({ success: true, message: `Crypto CMDB successfully ${enabled ? 'enabled' : 'disabled'} for this user.` });
+  } catch (err: any) {
+    console.error('Error toggling CMDB:', err);
+    res.status(500).json({ error: `Failed to toggle CMDB: ${err.message}` });
+  }
+};
+
+// POST /api/admin/users/:id/lock
+export const toggleUserLock = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { locked } = req.body;
+
+    await pool.query(
+      'UPDATE users SET row_locked = $1 WHERE id = $2',
+      [!!locked, id]
+    );
+    res.json({ success: true, message: `User row successfully ${locked ? 'locked' : 'unlocked'}.` });
+  } catch (err: any) {
+    console.error('Error toggling user lock:', err);
+    res.status(500).json({ error: `Failed to toggle user lock: ${err.message}` });
   }
 };
 
@@ -311,6 +403,15 @@ export const decommissionClient = async (req: Request, res: Response) => {
     
     if (!fs.existsSync(clientPath)) {
       return res.status(404).json({ error: `Client '${name}' not found.` });
+    }
+
+    // Check if the user row is locked
+    const userRes = await pool.query(
+      "SELECT id, row_locked FROM users WHERE LOWER(REGEXP_REPLACE(SPLIT_PART(email, '@', 1), '[^a-z0-9]', '', 'g')) = $1",
+      [name]
+    );
+    if (userRes.rows.length > 0 && userRes.rows[0].row_locked) {
+      return res.status(400).json({ error: 'This tenant is locked. Please unlock the user row in the admin panel before decommissioning.' });
     }
 
     // Run docker compose down -v to stop containers and delete DB volume on host

@@ -8,7 +8,6 @@ import {
   Bot,
   Settings,
   LogOut,
-  PlusCircle,
   Activity,
   ShieldAlert as BrandIcon
 } from 'lucide-react';
@@ -21,6 +20,7 @@ interface SidebarProps {
   vulnerabilityCount: number;
   role: string;
   email: string;
+  cmdbEnabled?: boolean;
   onLogout: () => void;
 }
 
@@ -30,17 +30,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   vulnerabilityCount,
   role,
   email,
+  cmdbEnabled,
   onLogout
 }) => {
   const navItems = [
     { id: 'overview', name: 'Overview', icon: LayoutDashboard },
     { id: 'scanner', name: 'Crypto Scanner', icon: ScanLine },
-    { 
+    ...(role === 'admin' || cmdbEnabled ? [{ 
       id: 'inventory', 
       name: 'Crypto CMDB', 
       icon: Database,
       badge: vulnerabilityCount > 0 ? vulnerabilityCount : undefined
-    },
+    }] : []),
     { id: 'migration', name: 'Migration & Impact', icon: TrendingUp },
     { id: 'compliance', name: 'Compliance & Audit', icon: FileCheck },
     { id: 'ai', name: 'AI Remediation Hub', icon: Bot },
@@ -50,7 +51,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Dynamically append Admin Panel if the logged-in user is platform administrator
   if (role === 'admin') {
     navItems.push({ id: 'admin', name: 'Admin Panel', icon: Settings });
-    navItems.push({ id: 'deploy', name: 'Deploy Tenant Stack', icon: PlusCircle });
   }
 
   return (

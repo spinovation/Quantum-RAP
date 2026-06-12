@@ -25,7 +25,9 @@ import {
   provisionClient, 
   getClientStats, 
   decommissionClient,
-  getUsers
+  getUsers,
+  toggleUserCMDB,
+  toggleUserLock
 } from '../controllers/adminController';
 import { authenticateToken, requireAdmin, restrictClientOnAdminNode, rejectOnAdminNode } from '../utils/authMiddleware';
 
@@ -62,5 +64,7 @@ router.post('/admin/clients', authenticateToken, requireAdmin, provisionClient);
 router.get('/admin/clients/:name/stats', authenticateToken, requireAdmin, getClientStats);
 router.delete('/admin/clients/:name', authenticateToken, requireAdmin, decommissionClient);
 router.get('/admin/users', authenticateToken, requireAdmin, getUsers);
+router.post('/admin/users/:id/cmdb', authenticateToken, requireAdmin, toggleUserCMDB);
+router.post('/admin/users/:id/lock', authenticateToken, requireAdmin, toggleUserLock);
 
 export default router;

@@ -23,6 +23,12 @@ export const initDb = async () => {
     if (fs.existsSync(schemaPath)) {
       const schemaSql = fs.readFileSync(schemaPath, 'utf8');
       await client.query(schemaSql);
+      // Ensure existing tables have the new columns
+      await client.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS cmdb_enabled BOOLEAN DEFAULT false;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS row_locked BOOLEAN DEFAULT false;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE;
+      `);
       console.log('Database tables verified/created successfully.');
     } else {
       console.warn('Warning: schema.sql file not found at', schemaPath);

@@ -7,6 +7,7 @@ export interface AuthenticatedRequest extends Request {
     id: string;
     email: string;
     role: string;
+    cmdb_enabled?: boolean;
   };
 }
 
@@ -21,7 +22,7 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     
     // Query session details and join user profiles
     const sessionResult = await pool.query(
-      'SELECT s.expires_at, u.id, u.email, u.role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.token = $1',
+      'SELECT s.expires_at, u.id, u.email, u.role, u.cmdb_enabled FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.token = $1',
       [token]
     );
 
@@ -42,7 +43,8 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     req.user = {
       id: session.id,
       email: session.email,
-      role: session.role
+      role: session.role,
+      cmdb_enabled: session.cmdb_enabled
     };
 
     next();
