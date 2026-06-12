@@ -737,7 +737,7 @@ eHl6MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>QuarkShieldVPN-darwin-universal.zip (universal app)</div>
                       </div>
                       <a 
-                        href="https://github.com/spinovation/Quantum-safe-VPN/releases" 
+                        href="https://github.com/spinovation/Quantum-safe-VPN/releases/download/v2.4.0/QuarkShieldVPN-darwin-universal.zip" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="btn-secondary" 
@@ -763,7 +763,7 @@ eHl6MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>QuarkShieldVPN-win32-x64.zip (executable installer)</div>
                       </div>
                       <a 
-                        href="https://github.com/spinovation/Quantum-safe-VPN/releases" 
+                        href="https://github.com/spinovation/Quantum-safe-VPN/releases/download/v2.4.0/QuarkShieldVPN-win32-x64.zip" 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="btn-secondary" 
