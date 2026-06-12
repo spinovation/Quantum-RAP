@@ -26,6 +26,7 @@ import type {
   AuditResult, 
   EnrichedAuditResult 
 } from '../utils/cryptoAuditor';
+import { PassiveDiscovery } from './PassiveDiscovery';
 
 interface InventoryProps {
   assets: AuditResult[];
@@ -376,6 +377,7 @@ export const Inventory: React.FC<InventoryProps> = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [lifecycleFilter, setLifecycleFilter] = useState('all');
+  const [subTab, setSubTab] = useState<'active' | 'passive'>('active');
 
   // Discovery panel state
   const [isDiscovering, setIsDiscovering] = useState(false);
@@ -974,8 +976,56 @@ export const Inventory: React.FC<InventoryProps> = ({
         </p>
       </div>
 
-      {/* Row 1: Discovery Connectors and SVG Dependency Graph */}
+      {/* Sub-tab selection bar */}
       <div style={{ 
+        display: 'flex', 
+        gap: '1.5rem', 
+        borderBottom: '1px solid var(--border-normal)', 
+        marginBottom: '1.5rem',
+        paddingBottom: '0.5rem'
+      }}>
+        <button
+          onClick={() => setSubTab('active')}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: subTab === 'active' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+            fontWeight: 600,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+            padding: '0.5rem 0.25rem',
+            borderBottom: subTab === 'active' ? '2px solid var(--accent-cyan)' : '2px solid transparent',
+            transition: 'all 0.2s',
+            marginBottom: '-0.6rem'
+          }}
+        >
+          Active CMDB Inventory
+        </button>
+        <button
+          onClick={() => setSubTab('passive')}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: subTab === 'passive' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+            fontWeight: 600,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+            padding: '0.5rem 0.25rem',
+            borderBottom: subTab === 'passive' ? '2px solid var(--accent-cyan)' : '2px solid transparent',
+            transition: 'all 0.2s',
+            marginBottom: '-0.6rem'
+          }}
+        >
+          Passive Discovery (Tier 3)
+        </button>
+      </div>
+
+      {subTab === 'passive' ? (
+        <PassiveDiscovery onAddAssets={onAddAssets || (() => {})} />
+      ) : (
+        <>
+          {/* Row 1: Discovery Connectors and SVG Dependency Graph */}
+          <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'minmax(300px, 15fr) minmax(450px, 22fr)', 
         gap: '1.5rem', 
@@ -1665,6 +1715,8 @@ export const Inventory: React.FC<InventoryProps> = ({
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Upgraded Audit Details Modal */}
       <dialog 

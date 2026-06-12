@@ -5,7 +5,8 @@ import {
   deleteAsset, 
   scanFile, 
   scanConfig, 
-  scanUrl 
+  scanUrl,
+  parsePcap
 } from '../controllers/assetController';
 import { 
   syncVaultCertificates, 
@@ -49,6 +50,7 @@ router.delete('/assets/:id', authenticateToken, restrictClientOnAdminNode, delet
 router.post('/scan/file', authenticateToken, restrictClientOnAdminNode, scanFile);
 router.post('/scan/config', authenticateToken, restrictClientOnAdminNode, scanConfig);
 router.post('/scan/url', authenticateToken, restrictClientOnAdminNode, scanUrl);
+router.post('/scan/passive/pcap', authenticateToken, restrictClientOnAdminNode, parsePcap);
 
 // CA Integrations
 router.post('/ca/vault/sync', authenticateToken, restrictClientOnAdminNode, syncVaultCertificates);

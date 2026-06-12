@@ -181,3 +181,49 @@ export const scanUrl = async (req: Request, res: Response) => {
     res.status(500).json({ error: `Connection failed: ${err.message}` });
   }
 };
+
+// POST /api/scan/passive/pcap
+export const parsePcap = async (req: Request, res: Response) => {
+  try {
+    const { fileName, fileSize } = req.body;
+    
+    // Simulate analyzing the PCAP file size or name if needed, then return simulated shadow assets
+    const mockShadows = [
+      {
+        id: `shadow-pcap-${Date.now()}-1`,
+        name: 'shadow-ingress-lb.internal',
+        ip: '10.220.14.3',
+        protocol: 'TLSv1.3',
+        algorithm: 'TLS_AES_128_GCM_SHA256 / RSA-4096',
+        isVulnerable: true,
+        riskLevel: 'high',
+        status: 'Quantum Vulnerable'
+      },
+      {
+        id: `shadow-pcap-${Date.now()}-2`,
+        name: 'pqc-mail-relay.secure',
+        ip: '192.168.12.110',
+        protocol: 'TLSv1.3',
+        algorithm: 'X25519MLKEM768 / ECDSA',
+        isVulnerable: false,
+        riskLevel: 'secure',
+        status: 'Post-Quantum Secure'
+      },
+      {
+        id: `shadow-pcap-${Date.now()}-3`,
+        name: 'legacy-pki-enrollment.internal',
+        ip: '10.199.5.4',
+        protocol: 'TLSv1.2',
+        algorithm: 'ECDHE-RSA-AES256-SHA384 / RSA-2048',
+        isVulnerable: true,
+        riskLevel: 'high',
+        status: 'Quantum Vulnerable'
+      }
+    ];
+
+    res.json(mockShadows);
+  } catch (err: any) {
+    console.error('Error parsing endpoint url:', err);
+    res.status(500).json({ error: `PCAP parsing failed: ${err.message}` });
+  }
+};
