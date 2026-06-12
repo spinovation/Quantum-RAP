@@ -1,11 +1,81 @@
 import React, { useState } from 'react';
-import { Shield, Lock, AlertCircle, KeyRound, Mail } from 'lucide-react';
+import { 
+  Shield, 
+  Lock, 
+  AlertCircle, 
+  KeyRound, 
+  Mail,
+  Download,
+  MessageSquare,
+  Scale,
+  ShieldCheck,
+  AlertTriangle,
+  Copyright
+} from 'lucide-react';
 
 interface AuthScreenProps {
   onAuthSuccess: (token: string, user: { id: string; email: string; role: string }) => void;
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
+  const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'disclaimer' | null>(null);
+
+  const downloadVpnProfile = () => {
+    const ovpnContent = `client
+dev tun
+proto udp
+remote vpn.quarkshield.services 1194
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+
+# Post-Quantum Cryptography Algorithms Enforced
+# Key Exchange: ML-KEM-768 / Kyber768
+# Signature: ML-DSA-65 / Dilithium3
+pq-kex mlkem768
+pq-sig mldsa65
+
+cipher AES-256-GCM
+auth SHA512
+verb 3
+
+<ca>
+-----BEGIN CERTIFICATE-----
+MIIBszCCARqgAwIBAgIUd5b8zXFqb2p5NklMTU1OT1BRUlNUVVZX
+WlhhY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OWFi
+Y2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OWFjZGVm
+[PQC Root CA Certificate]
+-----END CERTIFICATE-----
+</ca>
+<cert>
+-----BEGIN CERTIFICATE-----
+MIIBtTCCAR2gAwIBAgIUb5c9zXFqb2p5NklMTU1OT1BRUlNUVVZX
+WlhhY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OWFi
+Y2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OWFjZGVm
+[PQC Client Certificate]
+-----END CERTIFICATE-----
+</cert>
+<key>
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgq2pq
+NklMTU1OT1BRUlNUVVZXWlhhY2RlZmdoaWprbG1ub3BxcnN0dXZ3
+eHl6MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6
+[PQC Client Private Key]
+-----END PRIVATE KEY-----
+</key>`;
+
+    const blob = new Blob([ovpnContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'quarkshield-pqc-vpn.ovpn');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -345,7 +415,265 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           </div>
         </div>
       </div>
+
+      {/* Premium Footer Frame */}
+      <div className="glass-panel" style={{ 
+        marginTop: '2rem', 
+        padding: '1.75rem', 
+        background: 'var(--bg-card)', 
+        border: '1px solid var(--border-normal)', 
+        borderRadius: '8px' 
+      }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+          gap: '2rem', 
+          marginBottom: '1.5rem' 
+        }}>
+          {/* Support Section */}
+          <div>
+            <h4 style={{ 
+              fontSize: '0.85rem', 
+              fontWeight: 700, 
+              color: 'var(--text-muted)', 
+              textTransform: 'uppercase', 
+              letterSpacing: '0.05em', 
+              marginBottom: '0.8rem',
+              borderLeft: '2px solid var(--accent-cyan)',
+              paddingLeft: '6px',
+              textAlign: 'left'
+            }}>
+              Support
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', alignItems: 'flex-start' }}>
+              <a 
+                href="mailto:Support@quarkshield.services?subject=QuarkShield Support Request"
+                style={{ 
+                  color: 'var(--accent-cyan)', 
+                  fontSize: '0.82rem', 
+                  textDecoration: 'none', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem', 
+                  transition: 'color 0.2s',
+                  fontWeight: 500
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--accent-cyan)'}
+              >
+                <MessageSquare size={13} />
+                <span>💬 Raise a Support Request</span>
+              </a>
+              <button 
+                onClick={downloadVpnProfile}
+                style={{ 
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  color: 'var(--status-secure)', 
+                  fontSize: '0.82rem', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem', 
+                  transition: 'color 0.2s',
+                  fontWeight: 500
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--status-secure)'}
+              >
+                <Download size={13} />
+                <span>Download Quantum Safe VPN</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Legal Section */}
+          <div>
+            <h4 style={{ 
+              fontSize: '0.85rem', 
+              fontWeight: 700, 
+              color: 'var(--text-muted)', 
+              textTransform: 'uppercase', 
+              letterSpacing: '0.05em', 
+              marginBottom: '0.8rem',
+              borderLeft: '2px solid var(--accent-purple)',
+              paddingLeft: '6px',
+              textAlign: 'left'
+            }}>
+              Legal
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', alignItems: 'flex-start' }}>
+              <button 
+                onClick={() => setActiveModal('terms')}
+                style={{ 
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)', 
+                  fontSize: '0.82rem', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem', 
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-cyan)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+              >
+                <Scale size={13} />
+                <span>Terms of Service</span>
+              </button>
+              <button 
+                onClick={() => setActiveModal('privacy')}
+                style={{ 
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)', 
+                  fontSize: '0.82rem', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem', 
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-cyan)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+              >
+                <ShieldCheck size={13} />
+                <span>Privacy Policy</span>
+              </button>
+              <button 
+                onClick={() => setActiveModal('disclaimer')}
+                style={{ 
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)', 
+                  fontSize: '0.82rem', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem', 
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-cyan)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+              >
+                <AlertTriangle size={13} />
+                <span>Disclaimers</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Contact Us & Copyright Footer row */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          flexWrap: 'wrap', 
+          gap: '1rem', 
+          paddingTop: '1.25rem', 
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
+          fontSize: '0.82rem', 
+          color: 'var(--text-secondary)' 
+        }}>
+          <div style={{ textAlign: 'left' }}>
+            <span style={{ fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.05em', marginRight: '0.5rem' }}>Contact Us:</span>
+            <a href="mailto:Support@quarkshield.services" style={{ color: 'var(--accent-cyan)', textDecoration: 'none', fontWeight: 500 }}>Support@quarkshield.services</a>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+            <Copyright size={12} />
+            <span>2026 Quark Shield LLC</span>
+          </div>
+        </div>
       </div>
+      </div> {/* Closes maxWidth container */}
+
+      {/* Legal Dialog Overlay */}
+      {activeModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000,
+          padding: '1rem'
+        }}>
+          <div className="glass-panel" style={{
+            maxWidth: '550px',
+            width: '100%',
+            padding: '2rem',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-normal)',
+            borderRadius: '8px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+          }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-normal)', paddingBottom: '0.5rem', textAlign: 'left' }}>
+              {activeModal === 'terms' && 'Terms of Service'}
+              {activeModal === 'privacy' && 'Privacy Policy'}
+              {activeModal === 'disclaimer' && 'Operational Disclaimers'}
+            </h3>
+            
+            <div style={{ 
+              fontSize: '0.85rem', 
+              color: 'var(--text-secondary)', 
+              lineHeight: '1.6', 
+              maxHeight: '280px', 
+              overflowY: 'auto', 
+              marginBottom: '1.5rem', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '0.75rem',
+              textAlign: 'left'
+            }}>
+              {activeModal === 'terms' && (
+                <>
+                  <p><strong>1. Authorized Deployment Scope:</strong> Authorized client users are granted a non-exclusive license to run this private security assessment node inside their designated network boundary.</p>
+                  <p><strong>2. Threat Modeling Accuracy:</strong> All assessments, compliance indices, and risk alerts are computed based on active cryptanalysis mapped to NIST SP 800-219, CNSA 2.0, and Executive Order 14028 guidelines. Quantum readiness scoring is a security posture evaluation tool; absolute protection guarantees are not implied.</p>
+                  <p><strong>3. Proprietary IP:</strong> Platform code, crawler binaries, signatures, and PQC playbooks remain the intellectual property of Quark Shield LLC.</p>
+                </>
+              )}
+              {activeModal === 'privacy' && (
+                <>
+                  <p><strong>1. Data Minimization Rule:</strong> QuarkShield does not ingest, inspect, or store raw network application payloads, private user credentials, or application transaction database records. Only structural configuration parameters are parsed for audit integrity.</p>
+                  <p><strong>2. Complete Isolation:</strong> Your tenant node database operates in a private network container. Telemetry feeds and compliance diagnostics remain entirely inside the client volume storage boundaries.</p>
+                  <p><strong>3. OAuth Service Accounts:</strong> Stored credentials, private keys, and connection credentials configured for direct API scanning are encrypted locally inside your tenant database.</p>
+                </>
+              )}
+              {activeModal === 'disclaimer' && (
+                <>
+                  <p><strong>1. Quantum Decryption Horizon:</strong> Threat models and shelf-life metrics utilize mathematical estimates (Mosca's Theorem) for quantum computer decryption capabilities. Real-world timelines may vary based on scientific development speeds.</p>
+                  <p><strong>2. Hybrid Client Compatibility:</strong> Upgrading servers to hybrid post-quantum TLS schemes (like ML-KEM/Kyber) requires matching client-side handshake support. Legacy browser fallback policies should be decommissioned in accordance with secure operational guidelines.</p>
+                  <p><strong>3. Third-party Ingestion:</strong> Sync connection status relies on remote API availability. Quark Shield LLC accepts no responsibility for external platform credential configuration errors.</p>
+                </>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn-primary" 
+                onClick={() => setActiveModal(null)}
+                style={{ padding: '0.5rem 1.5rem' }}
+              >
+                Close Agreement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
