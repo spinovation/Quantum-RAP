@@ -19,7 +19,8 @@ import {
   Settings,
   RefreshCw,
   Bot,
-  Clock
+  Clock,
+  Copy
 } from 'lucide-react';
 import { 
   enrichAssetCMDB
@@ -492,6 +493,87 @@ export const Inventory: React.FC<InventoryProps> = ({
   const [selectedSource, setSelectedSource] = useState('aws');
   const [discoveredAssets, setDiscoveredAssets] = useState<AuditResult[]>([]);
   const liveTerminalRef = useRef<HTMLDivElement>(null);
+
+  // Tier 4 Agent Connectors state
+  const [connectors, setConnectors] = useState<any[]>([]);
+  const [newConnectorName, setNewConnectorName] = useState('');
+  const [generatedConnectorToken, setGeneratedConnectorToken] = useState('');
+  const [isRegisteringConnector, setIsRegisteringConnector] = useState(false);
+
+  const fetchConnectors = async () => {
+    try {
+      const token = sessionStorage.getItem('quarkshield_token');
+      const res = await fetch('/api/scan/agent/connectors', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConnectors(data);
+      }
+    } catch (err) {
+      console.error('Error fetching connectors:', err);
+    }
+  };
+
+  const handleRegisterConnector = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newConnectorName.trim()) return;
+    setIsRegisteringConnector(true);
+    try {
+      const token = sessionStorage.getItem('quarkshield_token');
+      const res = await fetch('/api/scan/agent/connectors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: newConnectorName })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGeneratedConnectorToken(data.token);
+        setNewConnectorName('');
+        fetchConnectors();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to register connector.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error registering connector.');
+    } finally {
+      setIsRegisteringConnector(false);
+    }
+  };
+
+  const handleDeleteConnector = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this connector? Outbound data from this agent will be rejected.')) return;
+    try {
+      const token = sessionStorage.getItem('quarkshield_token');
+      const res = await fetch(`/api/scan/agent/connectors/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        fetchConnectors();
+      } else {
+        alert('Failed to delete connector.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Poll active connectors status
+  useEffect(() => {
+    fetchConnectors();
+    const interval = setInterval(fetchConnectors, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // API credentials and connection configuration state
   const [selectedConfigSource, setSelectedConfigSource] = useState<string | null>(null);
@@ -1410,6 +1492,7 @@ export const Inventory: React.FC<InventoryProps> = ({
                       <option value="workday" style={{ color: '#ffffff' }}>{connectedSources['workday'] ? '✓ ' : ''}Workday: Sync directory names & owner identities</option>
                       <option value="sharepoint" style={{ color: '#ffffff' }}>{connectedSources['sharepoint'] ? '✓ ' : ''}SharePoint: Parse asset inventory documents</option>
                       <option value="servicenow" style={{ color: '#ffffff' }}>{connectedSources['servicenow'] ? '✓ ' : ''}ServiceNow: Get configuration items & create tickets</option>
+                      <option value="agent" style={{ color: '#ffffff' }}>{connectors.length > 0 ? '✓ ' : ''}Tier 4 Connectors: Lightweight Agent Scan</option>
                     </optgroup>
                   </select>
                   <button
@@ -1786,6 +1869,7 @@ export const Inventory: React.FC<InventoryProps> = ({
                   <option value="workday">Workday: Sync directory names & owner identities</option>
                   <option value="sharepoint">SharePoint: Parse asset inventory documents</option>
                   <option value="servicenow">ServiceNow: Get configuration items & create tickets</option>
+                  <option value="agent">Tier 4 Connectors: Lightweight Agent Scan</option>
                 </select>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '1rem' }}>
                   Queries other internal security and catalog inventory records.
@@ -1794,6 +1878,193 @@ export const Inventory: React.FC<InventoryProps> = ({
             )}
           </div>
         </div>
+
+        {/* Tier 4 Agent Connectors Registry & Status Panel */}
+        {logCategory === 'integration' && selectedAuditIntegrationSource === 'agent' && (
+          <div style={{ 
+            background: 'rgba(255,255,255,0.02)', 
+            border: '1px solid var(--border-normal)', 
+            borderRadius: '8px', 
+            padding: '1.25rem', 
+            marginBottom: '1.25rem',
+            color: '#ffffff'
+          }}>
+            <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-purple)' }}>
+              <Settings size={18} />
+              <span>Tier 4 Agent Connectors Management</span>
+            </h4>
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              Deploy outbound-only discovery agents on remote/internal hosts where API or passive discovery are not viable.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(350px, 1.3fr)', gap: '1.5rem', marginBottom: '1rem' }}>
+              {/* Register Form */}
+              <div style={{ background: 'rgba(0,0,0,0.25)', padding: '1rem', borderRadius: '6px', border: '1px solid var(--border-normal)' }}>
+                <h5 style={{ margin: '0 0 0.75rem 0', fontSize: '0.85rem', fontWeight: 600 }}>Register New Connector Instance</h5>
+                <form onSubmit={handleRegisterConnector} style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Host/Instance Name (e.g. prod-db-01)"
+                    value={newConnectorName}
+                    onChange={(e) => setNewConnectorName(e.target.value)}
+                    className="chat-text-input" 
+                    style={{ flexGrow: 1, padding: '0.40rem 0.6rem', fontSize: '0.85rem', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-normal)', color: '#ffffff' }}
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={isRegisteringConnector}
+                    className="btn-primary" 
+                    style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', fontWeight: 600 }}
+                  >
+                    Register
+                  </button>
+                </form>
+
+                {generatedConnectorToken && (
+                  <div style={{ marginTop: '1rem', background: 'rgba(0,243,255,0.05)', border: '1px solid rgba(0,243,255,0.2)', padding: '0.75rem', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-cyan)', marginBottom: '0.35rem' }}>
+                      Connector Token Generated Successfully:
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.4)', padding: '0.35rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <span style={{ fontSize: '0.78rem', fontFamily: 'monospace', color: '#ffffff', flexGrow: 1, wordBreak: 'break-all' }}>
+                        {generatedConnectorToken}
+                      </span>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedConnectorToken);
+                          alert('Token copied to clipboard!');
+                        }}
+                        style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', padding: '0.2rem' }}
+                        title="Copy token to clipboard"
+                      >
+                        <Copy size={13} />
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.35rem', lineHeight: '1.2' }}>
+                      ⚠️ Save this token now. It will not be shown again for security reasons.
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Installer Instructions */}
+              <div style={{ background: 'rgba(0,0,0,0.25)', padding: '1rem', borderRadius: '6px', border: '1px solid var(--border-normal)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', fontWeight: 600 }}>Install & Run Script (Outbound-Only)</h5>
+                  <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.3' }}>
+                    Run the following command on the target host to download the connector script, scan directory configurations, and push findings outbound to QuarkShield:
+                  </p>
+                  <div style={{ 
+                    background: '#090a0f', 
+                    border: '1px solid var(--border-normal)', 
+                    borderRadius: '6px', 
+                    padding: '0.6rem 0.8rem', 
+                    fontFamily: 'monospace', 
+                    fontSize: '0.75rem', 
+                    color: 'var(--accent-cyan)', 
+                    position: 'relative',
+                    wordBreak: 'break-all',
+                    maxHeight: '80px',
+                    overflowY: 'auto'
+                  }}>
+                    curl -sSL {window.location.origin}/api/scan/agent/script | python3 - --token {generatedConnectorToken || '<YOUR_TOKEN>'} --host {window.location.origin}
+                    <button 
+                      onClick={() => {
+                        const cmd = `curl -sSL ${window.location.origin}/api/scan/agent/script | python3 - --token ${generatedConnectorToken || '<YOUR_TOKEN>'} --host ${window.location.origin}`;
+                        navigator.clipboard.writeText(cmd);
+                        alert('Installer command copied to clipboard!');
+                      }}
+                      style={{ 
+                        position: 'absolute', 
+                        top: '0.35rem', 
+                        right: '0.35rem', 
+                        background: 'rgba(0,0,0,0.6)', 
+                        border: '1px solid var(--border-normal)', 
+                        borderRadius: '4px',
+                        color: 'var(--accent-cyan)', 
+                        cursor: 'pointer', 
+                        padding: '0.2rem' 
+                      }}
+                      title="Copy installation command"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                  💡 Supported OS: Linux, macOS, BSD (Requires Python 3 & OpenSSL).
+                </div>
+              </div>
+            </div>
+
+            {/* Registered Connectors List */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem', marginTop: '1rem' }}>
+              <h5 style={{ margin: '0 0 0.75rem 0', fontSize: '0.85rem', fontWeight: 600 }}>Active Connectors Registry</h5>
+              {connectors.length === 0 ? (
+                <div style={{ padding: '1.5rem', textAlign: 'center', background: 'rgba(0,0,0,0.15)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.02)', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                  No active connectors registered. Please use the form above to register your first connector.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="quark-table" style={{ width: '100%', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Host Name</th>
+                        <th>Connection Status</th>
+                        <th>Last Synchronization</th>
+                        <th>Created Date</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {connectors.map(c => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td style={{ fontWeight: 600, color: '#ffffff' }}>{c.name}</td>
+                          <td>
+                            <span style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: '0.3rem', 
+                              padding: '0.15rem 0.45rem', 
+                              borderRadius: '4px', 
+                              fontSize: '0.7rem', 
+                              fontWeight: 700,
+                              background: c.status === 'online' ? 'rgba(57, 255, 20, 0.1)' : 'rgba(255, 57, 57, 0.1)',
+                              color: c.status === 'online' ? 'var(--status-secure)' : 'var(--status-vulnerable)'
+                            }}>
+                              <span style={{ 
+                                height: '6px', 
+                                width: '6px', 
+                                borderRadius: '50%', 
+                                background: c.status === 'online' ? 'var(--status-secure)' : 'var(--status-vulnerable)' 
+                              }} />
+                              {c.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ color: 'var(--text-secondary)' }}>
+                            {c.lastSync ? new Date(c.lastSync).toLocaleString() : 'Never Synced'}
+                          </td>
+                          <td style={{ color: 'var(--text-muted)' }}>
+                            {new Date(c.createdAt).toLocaleDateString()}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button 
+                              onClick={() => handleDeleteConnector(c.id)}
+                              style={{ background: 'none', border: 'none', color: 'var(--status-vulnerable)', cursor: 'pointer', padding: '0.25rem' }}
+                              title="Delete/Unregister connector"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Stored Raw Log Terminal Console */}
         <div style={{ marginBottom: '1.25rem' }}>

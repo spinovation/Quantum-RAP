@@ -12,6 +12,13 @@ import {
   syncVaultCertificates, 
   syncADCSCertificates 
 } from '../controllers/caController';
+import { 
+  getConnectors, 
+  registerConnector, 
+  deleteConnector, 
+  getConnectorScript, 
+  ingestConnectorData 
+} from '../controllers/agentController';
 import { getComplianceReport } from '../controllers/complianceController';
 import { getAIChatResponse, getAICorrelation } from '../controllers/aiController';
 import { 
@@ -51,6 +58,13 @@ router.post('/scan/file', authenticateToken, restrictClientOnAdminNode, scanFile
 router.post('/scan/config', authenticateToken, restrictClientOnAdminNode, scanConfig);
 router.post('/scan/url', authenticateToken, restrictClientOnAdminNode, scanUrl);
 router.post('/scan/passive/pcap', authenticateToken, restrictClientOnAdminNode, parsePcap);
+
+// Agent Connectors (Tier 4)
+router.get('/scan/agent/connectors', authenticateToken, restrictClientOnAdminNode, getConnectors);
+router.post('/scan/agent/connectors', authenticateToken, restrictClientOnAdminNode, registerConnector);
+router.delete('/scan/agent/connectors/:id', authenticateToken, restrictClientOnAdminNode, deleteConnector);
+router.get('/scan/agent/script', getConnectorScript);
+router.post('/scan/agent/ingest', ingestConnectorData);
 
 // CA Integrations
 router.post('/ca/vault/sync', authenticateToken, restrictClientOnAdminNode, syncVaultCertificates);
